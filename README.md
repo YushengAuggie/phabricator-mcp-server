@@ -35,9 +35,9 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 ### **Code Review (8 tools)**
 - `get-differential` - Get basic differential revision details
 - `get-differential-detailed` - Get comprehensive review with code changes
-- `get-review-feedback` - **🔥 Enhanced**: Get intelligent review analysis with code context
+- `get-review-feedback` - : Get intelligent review analysis with code context
 - `add-differential-comment` - Add general comments to reviews
-- `add-inline-comment` - **🔥 New**: Add targeted inline comments to specific code lines
+- `add-inline-comment` - : Add targeted inline comments to specific code lines
 - `accept-differential` - Accept/approve differential revisions
 - `request-changes-differential` - Request changes with optional feedback
 - `subscribe-to-differential` - Subscribe users to review notifications
@@ -97,37 +97,6 @@ PHABRICATOR_URL=https://your-phabricator-instance.com/api/
 
 # Optional: Custom server port (default: 8932)
 # MCP_SERVER_PORT=8932
-```
-
-## 📁 Project Structure
-
-```
-phabricator-mcp-server/
-├── src/
-│   ├── core/                   # Core functionality
-│   │   ├── client.py           # Enhanced Phabricator API client with review analysis
-│   │   ├── formatters.py       # Advanced output formatting with code context
-│   │   ├── models.py           # Data models and type definitions
-│   │   └── __init__.py
-│   ├── servers/                # MCP server implementations
-│   │   ├── http_server.py      # FastMCP HTTP/SSE server (production)
-│   │   ├── stdio_server.py     # stdio server (MCP client integration)
-│   │   └── __init__.py
-│   └── tests/                  # Comprehensive test suite
-│       ├── test_tool_completeness.py  # Tool validation tests
-│       ├── test_tool_integration.py   # Integration tests with mocks
-│       └── conftest.py         # Test configuration and fixtures
-├── examples/                   # Usage examples and demos
-│   ├── demo_enhanced_comments.py
-│   └── README.md
-├── scripts/                    # Utility and debugging scripts
-│   ├── test_api_direct.py
-│   └── README.md
-├── start.py                    # Smart startup script with auto-setup
-├── run_tests.py               # Test runner script
-├── pyproject.toml             # Project dependencies and configuration
-├── pytest.ini                # Test configuration
-└── README.md
 ```
 
 ## 💻 Usage
