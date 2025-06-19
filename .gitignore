@@ -84,4 +84,4 @@ dmypy.json
 # Personal test files
 test_*.py
 debug_*.py
-*_test.py
+*_test.pyadd_inline_comments_*.py

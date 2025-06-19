@@ -11,8 +11,8 @@ import asyncio
 import os
 from typing import Optional
 
-from src.core.enhanced_client import EnhancedPhabricatorClient
-from src.core.enhanced_formatters import format_enhanced_differential
+from src.core.client import PhabricatorClient
+from src.core.formatters import format_enhanced_differential
 
 
 async def demo_review_comments(revision_id: Optional[str] = None):
@@ -35,7 +35,7 @@ async def demo_review_comments(revision_id: Optional[str] = None):
         return
 
     try:
-        client = EnhancedPhabricatorClient()
+        client = PhabricatorClient()
     except Exception as e:
         print(f"Error: {e}")
         return
@@ -96,7 +96,7 @@ async def demo_add_inline_comment():
     print("=" * 80)
 
     # This is a demonstration of how the API would work
-    client = EnhancedPhabricatorClient()
+    client = PhabricatorClient()
 
     # Example usage (would need real values):
     revision_id = input("Enter revision ID: ").strip()

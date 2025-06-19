@@ -11,7 +11,11 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from core.client import PhabricatorAPIError, PhabricatorClient
-from core.formatters import format_differential_details, format_task_details
+from core.formatters import (
+    format_differential_details,
+    format_review_feedback_with_context,
+    format_task_details,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -74,6 +78,17 @@ class PhabricatorMCPServer:
                             description="Comma-separated list of user PHIDs to subscribe",
                             required=True,
                         ),
+                    ],
+                ),
+                types.Tool(
+                    name="get-differential-detailed",
+                    description="Get detailed code review information including comments and code changes",
+                    arguments=[
+                        types.ToolArgument(
+                            name="revision_id",
+                            description="Revision ID (without 'D' prefix)",
+                            required=True,
+                        )
                     ],
                 ),
                 types.Tool(
@@ -144,6 +159,53 @@ class PhabricatorMCPServer:
                         ),
                     ],
                 ),
+                types.Tool(
+                    name="get-review-feedback",
+                    description="Get review feedback with intelligent code context for addressing comments. Perfect for understanding what needs to be changed and where to change it.",
+                    arguments=[
+                        types.ToolArgument(
+                            name="revision_id",
+                            description="Revision ID (without 'D' prefix)",
+                            required=True,
+                        ),
+                        types.ToolArgument(
+                            name="context_lines",
+                            description="Number of lines of code context to show around each comment (default: 7)",
+                            required=False,
+                        ),
+                    ],
+                ),
+                types.Tool(
+                    name="add-inline-comment",
+                    description="Add an inline comment to a specific line in a differential revision. Perfect for automated code review or targeted feedback.",
+                    arguments=[
+                        types.ToolArgument(
+                            name="revision_id",
+                            description="Revision ID (without 'D' prefix)",
+                            required=True,
+                        ),
+                        types.ToolArgument(
+                            name="file_path",
+                            description="Path to the file to comment on",
+                            required=True,
+                        ),
+                        types.ToolArgument(
+                            name="line_number",
+                            description="Line number to comment on",
+                            required=True,
+                        ),
+                        types.ToolArgument(
+                            name="content",
+                            description="Comment text to add",
+                            required=True,
+                        ),
+                        types.ToolArgument(
+                            name="is_new_file",
+                            description="Whether to comment on the new version (true) or old version (false) of the file (default: true)",
+                            required=False,
+                        ),
+                    ],
+                ),
             ]
 
         @self.server.call_tool()
@@ -180,6 +242,25 @@ class PhabricatorMCPServer:
                         types.TextContent(
                             type="text",
                             text=f"✓ {len(user_phids)} user(s) subscribed successfully to task T{arguments['task_id']}",
+                        )
+                    ]
+
+                elif name == "get-differential-detailed":
+                    revision = await self.phab_client.get_differential_revision(
+                        arguments["revision_id"]
+                    )
+                    comments = await self.phab_client.get_differential_comments(
+                        arguments["revision_id"]
+                    )
+                    code_changes = await self.phab_client.get_differential_code_changes(
+                        arguments["revision_id"]
+                    )
+
+                    from core.formatters import format_enhanced_differential
+                    return [
+                        types.TextContent(
+                            type="text", 
+                            text=format_enhanced_differential(revision, comments, code_changes)
                         )
                     ]
 
@@ -242,6 +323,41 @@ class PhabricatorMCPServer:
                         types.TextContent(
                             type="text",
                             text=f"✓ {len(user_phids)} user(s) subscribed successfully to revision D{arguments['revision_id']}",
+                        )
+                    ]
+
+                elif name == "get-review-feedback":
+                    context_lines = int(arguments.get("context_lines", 7))
+                    feedback_data = await self.phab_client.get_review_feedback_with_code_context(
+                        arguments["revision_id"], context_lines
+                    )
+
+                    return [
+                        types.TextContent(
+                            type="text", text=format_review_feedback_with_context(feedback_data)
+                        )
+                    ]
+
+                elif name == "add-inline-comment":
+                    line_number = int(arguments["line_number"])
+                    is_new_file = arguments.get("is_new_file", "true").lower() in (
+                        "true",
+                        "1",
+                        "yes",
+                    )
+
+                    await self.phab_client.add_inline_comment(
+                        arguments["revision_id"],
+                        arguments["file_path"],
+                        line_number,
+                        arguments["content"],
+                        is_new_file,
+                    )
+
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text=f"✓ Inline comment added successfully to {arguments['file_path']}:{line_number} in revision D{arguments['revision_id']}",
                         )
                     ]
 

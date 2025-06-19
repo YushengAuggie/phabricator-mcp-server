@@ -1,7 +1,7 @@
 """Enhanced Phabricator API client with proper error handling and type safety."""
 
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from phabricator import Phabricator
 
@@ -324,3 +324,574 @@ class PhabricatorClient:
             raise PhabricatorAPIError(
                 f"Failed to subscribe users to revision D{revision_id}: {str(e)}"
             )
+
+    async def get_revision_comments_with_context(
+        self, revision_id: str, context_lines: int = 5
+    ) -> Dict[str, Any]:
+        """Get all comments for a revision with surrounding code context.
+
+        Args:
+            revision_id: Revision ID (without 'D' prefix)
+            context_lines: Number of lines to include before/after inline comments
+
+        Returns:
+            Dictionary containing:
+                - revision: Basic revision info
+                - comments: All comments with enhanced inline comment data
+                - code_changes: Full diff information
+        """
+        # Get basic revision info
+        revision = await self.get_differential_revision(revision_id)
+
+        # Get all comments
+        comments = await self.get_differential_comments(revision_id)
+
+        # Get code changes
+        code_changes = await self.get_differential_code_changes(revision_id)
+
+        # Enhance inline comments with code context
+        enhanced_comments = []
+        for comment in comments:
+            if comment.get('type') == 'inline':
+                enhanced_comment = await self._enhance_inline_comment(
+                    comment, code_changes, context_lines
+                )
+                enhanced_comments.append(enhanced_comment)
+            else:
+                enhanced_comments.append(comment)
+
+        return {'revision': revision, 'comments': enhanced_comments, 'code_changes': code_changes}
+
+    async def _enhance_inline_comment(
+        self, comment: Dict[str, Any], code_changes: Dict[str, Any], context_lines: int
+    ) -> Dict[str, Any]:
+        """Enhance an inline comment with code context.
+
+        Args:
+            comment: The inline comment data
+            code_changes: The diff data from get_differential_code_changes
+            context_lines: Number of context lines
+
+        Returns:
+            Enhanced comment with code_context field
+        """
+        enhanced = comment.copy()
+
+        # Extract file and line info from comment
+        file_path = None
+        line_number = None
+
+        # Try different possible field locations
+        if 'fields' in comment:
+            fields = comment['fields']
+            file_path = fields.get('path', fields.get('file'))
+            line_number = fields.get('line', fields.get('lineNumber'))
+
+        # Also check direct fields
+        if not file_path:
+            file_path = comment.get('path', comment.get('file'))
+        if not line_number:
+            line_number = comment.get('line', comment.get('lineNumber'))
+
+        # If we have file and line info, find the code context
+        if file_path and line_number and code_changes.get('changes'):
+            code_context = self._extract_code_context(
+                file_path, line_number, code_changes['changes'], context_lines
+            )
+            enhanced['code_context'] = code_context
+            enhanced['enhanced_file'] = file_path
+            enhanced['enhanced_line'] = line_number
+
+        return enhanced
+
+    def _extract_code_context(
+        self, file_path: str, line_number: int, changes: List[Dict], context_lines: int
+    ) -> Optional[Dict[str, Any]]:
+        """Extract code context around a specific line.
+
+        Args:
+            file_path: Path of the file
+            line_number: Line number in the file
+            changes: List of file changes from the diff
+            context_lines: Number of context lines
+
+        Returns:
+            Dictionary with code context or None if not found
+        """
+        # Find the matching file in changes
+        for change in changes:
+            current_path = change.get('currentPath', change.get('newPath'))
+            if current_path == file_path:
+                # Found the file, now extract context from hunks
+                hunks = change.get('hunks', [])
+
+                for hunk in hunks:
+                    new_offset = hunk.get('newOffset', 0)
+                    new_length = hunk.get('newLength', 0)
+
+                    # Check if the line falls within this hunk
+                    if new_offset <= line_number < new_offset + new_length:
+                        corpus = hunk.get('corpus', '')
+                        lines = corpus.split('\n')
+
+                        # Calculate relative position in hunk
+                        hunk_line_idx = line_number - new_offset
+
+                        # Extract context
+                        start_idx = max(0, hunk_line_idx - context_lines)
+                        end_idx = min(len(lines), hunk_line_idx + context_lines + 1)
+
+                        context_lines_list = []
+                        for i in range(start_idx, end_idx):
+                            if i < len(lines):
+                                line_num = new_offset + i
+                                is_target = i == hunk_line_idx
+                                context_lines_list.append(
+                                    {
+                                        'line_number': line_num,
+                                        'content': lines[i],
+                                        'is_target': is_target,
+                                    }
+                                )
+
+                        return {
+                            'file': file_path,
+                            'target_line': line_number,
+                            'hunk_info': f"@@ -{hunk.get('oldOffset')},{hunk.get('oldLength')} +{new_offset},{new_length} @@",
+                            'lines': context_lines_list,
+                        }
+
+        return None
+
+    async def add_inline_comment(
+        self,
+        revision_id: str,
+        file_path: str,
+        line_number: int,
+        content: str,
+        is_new_file: bool = True,
+    ) -> Dict:
+        """Add an inline comment to a specific line in a differential revision.
+
+        Args:
+            revision_id: Revision ID (without 'D' prefix)
+            file_path: Path to the file
+            line_number: Line number to comment on
+            content: Comment text
+            is_new_file: Whether to comment on the new version (True) or old version (False)
+
+        Returns:
+            Result dictionary from API
+        """
+        try:
+            # First get the differential to find the diff ID
+            revision = await self.get_differential_revision(revision_id)
+            diff_id = None
+
+            # Try to get the current diff ID from the revision
+            if 'fields' in revision and 'diffPHID' in revision['fields']:
+                # Get diff details to find the ID
+                diff_phid = revision['fields']['diffPHID']
+                # For now, we'll try to create the inline comment with revision info
+
+            # Use differential.createinline to create the inline comment
+            result = self.phab.differential.createinline(
+                revisionID=int(revision_id),
+                content=content,
+                filePath=file_path,
+                lineNumber=int(line_number),
+                isNewFile=is_new_file,
+            )
+            return result
+        except Exception as e:
+            raise PhabricatorAPIError(
+                f"Failed to add inline comment to revision D{revision_id}: {str(e)}"
+            )
+
+    async def reply_to_comment(self, comment_phid: str, content: str) -> Dict:
+        """Reply to an existing comment thread.
+
+        Args:
+            comment_phid: PHID of the comment to reply to
+            content: Reply content
+
+        Returns:
+            Result dictionary from API
+        """
+        try:
+            # This would require finding the parent object and adding a reply
+            # The exact implementation depends on Phabricator version
+            raise NotImplementedError(
+                "Reply functionality requires specific Phabricator API endpoints"
+            )
+        except Exception as e:
+            raise PhabricatorAPIError(f"Failed to reply to comment: {str(e)}")
+
+    async def mark_inline_comment_done(self, comment_phid: str) -> Dict:
+        """Mark an inline comment as done/resolved.
+
+        Args:
+            comment_phid: PHID of the inline comment
+
+        Returns:
+            Result dictionary from API
+        """
+        try:
+            # This typically requires a specific transaction type
+            # The exact implementation depends on Phabricator version
+            raise NotImplementedError(
+                "Mark done functionality requires specific Phabricator API endpoints"
+            )
+        except Exception as e:
+            raise PhabricatorAPIError(f"Failed to mark comment as done: {str(e)}")
+
+    async def get_review_feedback_with_code_context(
+        self, revision_id: str, context_lines: int = 7
+    ) -> Dict[str, Any]:
+        """Get review feedback with intelligent code context for addressing comments.
+
+        This method helps address code review comments by:
+        1. Getting all review comments
+        2. Correlating them with specific code locations using content analysis
+        3. Providing rich context around commented code areas
+        4. Formatting for easy understanding and action
+
+        Args:
+            revision_id: Revision ID (without 'D' prefix)
+            context_lines: Number of lines to show around relevant code areas
+
+        Returns:
+            Dictionary containing:
+                - revision: Basic revision info
+                - review_feedback: List of feedback items with code context
+                - summary: Summary of what needs to be addressed
+        """
+        try:
+            # Get basic revision info
+            revision = await self.get_differential_revision(revision_id)
+
+            # Get all comments
+            comments = await self.get_differential_comments(revision_id)
+
+            # Get code changes
+            code_changes = await self.get_differential_code_changes(revision_id)
+
+            # Process comments and correlate with code
+            review_feedback = []
+            actionable_comments = []
+
+            for comment in comments:
+                content = comment.get('content', '')
+                if content and content.strip():
+                    actionable_comments.append(comment)
+
+            # Correlate comments with code locations
+            for comment in actionable_comments:
+                feedback_item = await self._correlate_comment_with_code(
+                    comment, code_changes, context_lines
+                )
+                if feedback_item:
+                    review_feedback.append(feedback_item)
+
+            # Generate summary
+            summary = self._generate_review_summary(review_feedback)
+
+            return {
+                'revision': revision,
+                'review_feedback': review_feedback,
+                'summary': summary,
+                'total_comments': len(actionable_comments),
+                'comments_with_context': len([f for f in review_feedback if f.get('code_context')]),
+            }
+
+        except Exception as e:
+            raise PhabricatorAPIError(f"Failed to get review feedback for D{revision_id}: {str(e)}")
+
+    async def _correlate_comment_with_code(
+        self, comment: Dict[str, Any], code_changes: Dict[str, Any], context_lines: int
+    ) -> Optional[Dict[str, Any]]:
+        """Correlate a comment with relevant code locations using content analysis."""
+        content = comment.get('content', '').strip()
+        if not content:
+            return None
+
+        feedback_item = {
+            'comment': content,
+            'author': comment.get('authorPHID', 'unknown'),
+            'date': comment.get('dateCreated', ''),
+            'type': 'general',  # Default type
+            'code_context': None,
+            'suggested_locations': [],
+        }
+
+        if not code_changes.get('changes'):
+            return feedback_item
+
+        # Extract keywords from comment that might indicate code locations
+        keywords = self._extract_code_keywords_from_comment(content)
+
+        # Search for relevant code locations
+        relevant_locations = []
+        for change in code_changes['changes']:
+            file_path = change.get('currentPath', change.get('newPath', ''))
+            hunks = change.get('hunks', [])
+
+            for hunk in hunks:
+                corpus = hunk.get('corpus', '')
+                if not corpus:
+                    continue
+
+                lines = corpus.split('\n')
+                new_offset = int(hunk.get('newOffset', 0))
+
+                # Look for lines that match comment keywords
+                for line_idx, line in enumerate(lines):
+                    line_num = new_offset + line_idx
+                    line_content = line[1:] if line.startswith(('+', '-', ' ')) else line
+
+                    # Check if this line is relevant to the comment
+                    relevance_score = self._calculate_line_relevance(
+                        line_content, keywords, content
+                    )
+
+                    if relevance_score > 0:
+                        # Get context around this line
+                        context = self._get_code_context_around_line(
+                            lines, line_idx, new_offset, context_lines, file_path, hunk
+                        )
+
+                        relevant_locations.append(
+                            {
+                                'file': file_path,
+                                'line': line_num,
+                                'relevance_score': relevance_score,
+                                'context': context,
+                                'line_content': line_content.strip(),
+                            }
+                        )
+
+        # Sort by relevance and take the most relevant locations
+        relevant_locations.sort(key=lambda x: x['relevance_score'], reverse=True)
+
+        if relevant_locations:
+            # Use the most relevant location as primary context
+            best_location = relevant_locations[0]
+            feedback_item['code_context'] = best_location['context']
+            feedback_item['primary_file'] = best_location['file']
+            feedback_item['primary_line'] = best_location['line']
+            feedback_item['type'] = 'inline'  # Has code context
+
+            # Include other relevant locations as suggestions
+            feedback_item['suggested_locations'] = relevant_locations[
+                1:3
+            ]  # Top 2 additional locations
+
+        return feedback_item
+
+    def _extract_code_keywords_from_comment(self, comment: str) -> list[str]:
+        """Extract potential code-related keywords from a comment."""
+        import re
+
+        keywords = []
+
+        # Look for variable names (commonly referenced in code reviews)
+        # Pattern: words that look like variable names
+        var_pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+        potential_vars = re.findall(var_pattern, comment)
+
+        # Filter for likely variable names (avoid common English words)
+        common_words = {
+            'the',
+            'a',
+            'an',
+            'and',
+            'or',
+            'but',
+            'in',
+            'on',
+            'at',
+            'to',
+            'for',
+            'of',
+            'with',
+            'by',
+            'is',
+            'are',
+            'was',
+            'were',
+            'be',
+            'been',
+            'have',
+            'has',
+            'had',
+            'do',
+            'does',
+            'did',
+            'will',
+            'would',
+            'could',
+            'should',
+            'may',
+            'might',
+            'can',
+            'must',
+            'this',
+            'that',
+            'these',
+            'those',
+            'not',
+            'more',
+            'less',
+            'better',
+            'best',
+            'good',
+            'bad',
+            'nit',
+            'comment',
+            'code',
+            'line',
+            'function',
+            'method',
+            'class',
+            'file',
+        }
+
+        for word in potential_vars:
+            if (
+                len(word) > 2
+                and word.lower() not in common_words
+                and not word.isupper()  # Skip ALL_CAPS (constants are less likely to be in comments)
+                and ('_' in word or any(c.isupper() for c in word[1:]))
+            ):  # snake_case or camelCase
+                keywords.append(word)
+
+        # Look for quoted strings (often variable names or values)
+        quoted_pattern = r'["`\'](.*?)["`\']'
+        quoted_items = re.findall(quoted_pattern, comment)
+        keywords.extend(quoted_items)
+
+        # Look for function calls
+        func_pattern = r'(\w+)\s*\('
+        functions = re.findall(func_pattern, comment)
+        keywords.extend(functions)
+
+        return list(set(keywords))  # Remove duplicates
+
+    def _calculate_line_relevance(
+        self, line_content: str, keywords: list[str], comment: str
+    ) -> float:
+        """Calculate how relevant a line of code is to a comment."""
+        relevance_score = 0.0
+
+        if not line_content.strip():
+            return 0.0
+
+        # Score based on keyword matches
+        for keyword in keywords:
+            if keyword in line_content:
+                relevance_score += 2.0  # High score for exact keyword match
+            elif keyword.lower() in line_content.lower():
+                relevance_score += 1.0  # Medium score for case-insensitive match
+
+        # Boost score for certain patterns mentioned in comments
+        if 'result' in comment.lower() and 'result' in line_content.lower():
+            relevance_score += 1.5
+
+        if 'variable' in comment.lower() and '=' in line_content:
+            relevance_score += 1.0
+
+        if 'assignment' in comment.lower() and '=' in line_content:
+            relevance_score += 1.0
+
+        if 'unnecessary' in comment.lower() and line_content.strip().startswith(('+', '-')):
+            relevance_score += 0.5
+
+        # Reduce score for comment lines or empty lines
+        if line_content.strip().startswith('#') or line_content.strip().startswith('//'):
+            relevance_score *= 0.1
+
+        return relevance_score
+
+    def _get_code_context_around_line(
+        self,
+        lines: list[str],
+        target_line_idx: int,
+        offset: int,
+        context_lines: int,
+        file_path: str,
+        hunk: Dict,
+    ) -> Dict[str, Any]:
+        """Get code context around a specific line."""
+        start_idx = max(0, target_line_idx - context_lines)
+        end_idx = min(len(lines), target_line_idx + context_lines + 1)
+
+        context_lines_list = []
+        for i in range(start_idx, end_idx):
+            if i < len(lines):
+                line_num = offset + i
+                line_content = lines[i]
+
+                # Determine line type
+                line_type = 'context'
+                if line_content.startswith('+'):
+                    line_type = 'added'
+                elif line_content.startswith('-'):
+                    line_type = 'removed'
+
+                # Clean content (remove diff markers)
+                clean_content = (
+                    line_content[1:] if line_content.startswith(('+', '-', ' ')) else line_content
+                )
+
+                context_lines_list.append(
+                    {
+                        'line_number': line_num,
+                        'content': clean_content,
+                        'raw_content': line_content,
+                        'type': line_type,
+                        'is_target': i == target_line_idx,
+                        'is_highlighted': i == target_line_idx,
+                    }
+                )
+
+        return {
+            'file': file_path,
+            'hunk_info': f"@@ -{hunk.get('oldOffset', 0)},{hunk.get('oldLength', 0)} +{offset},{hunk.get('newLength', 0)} @@",
+            'lines': context_lines_list,
+            'target_line': offset + target_line_idx,
+        }
+
+    def _generate_review_summary(self, review_feedback: list[Dict[str, Any]]) -> str:
+        """Generate a summary of review feedback to address."""
+        if not review_feedback:
+            return "No actionable review feedback found."
+
+        total_feedback = len(review_feedback)
+        inline_feedback = len([f for f in review_feedback if f.get('code_context')])
+        general_feedback = total_feedback - inline_feedback
+
+        summary_parts = [
+            f"📋 Review Summary: {total_feedback} items to address",
+            f"   • {inline_feedback} comments with specific code locations",
+            f"   • {general_feedback} general comments",
+        ]
+
+        # Categorize feedback types
+        categories = {}
+        for feedback in review_feedback:
+            content = feedback['comment'].lower()
+            if 'nit' in content:
+                categories['nits'] = categories.get('nits', 0) + 1
+            elif any(word in content for word in ['error', 'bug', 'issue', 'problem']):
+                categories['issues'] = categories.get('issues', 0) + 1
+            elif any(word in content for word in ['suggest', 'recommend', 'consider']):
+                categories['suggestions'] = categories.get('suggestions', 0) + 1
+            else:
+                categories['other'] = categories.get('other', 0) + 1
+
+        if categories:
+            summary_parts.append("\n📊 Feedback breakdown:")
+            for category, count in categories.items():
+                summary_parts.append(f"   • {count} {category}")
+
+        return "\n".join(summary_parts)

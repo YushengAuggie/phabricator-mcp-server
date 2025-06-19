@@ -67,7 +67,7 @@ def install_dependencies():
     
     if has_uv():
         print("Using uv to install dependencies...")
-        result = run_command("uv pip install -r requirements.txt")
+        result = run_command("uv pip install -e .")
         if result is None:
             print("Failed to install dependencies with uv")
             return False
@@ -78,7 +78,7 @@ def install_dependencies():
         else:
             pip_cmd = "venv/bin/pip"
         
-        result = run_command(f"{pip_cmd} install -r requirements.txt")
+        result = run_command(f"{pip_cmd} install -e .")
         if result is None:
             print("Failed to install dependencies with pip")
             return False
@@ -125,9 +125,9 @@ def check_env_file():
 
 def setup_environment():
     """Set up the development environment."""
-    # Check if requirements.txt exists
-    if not Path("requirements.txt").exists():
-        print("Error: requirements.txt not found!")
+    # Check if pyproject.toml exists
+    if not Path("pyproject.toml").exists():
+        print("Error: pyproject.toml not found!")
         return False
     
     # Create virtual environment if it doesn't exist

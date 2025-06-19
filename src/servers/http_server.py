@@ -8,8 +8,9 @@ from fastmcp import FastMCP
 
 from core.client import PhabricatorAPIError, PhabricatorClient
 from core.formatters import (
-    format_detailed_differential,
     format_differential_details,
+    format_enhanced_differential,
+    format_review_feedback_with_context,
     format_task_details,
 )
 
@@ -108,7 +109,7 @@ def create_http_server() -> FastMCP:
             revision = await phab_client.get_differential_revision(revision_id)
             comments = await phab_client.get_differential_comments(revision_id)
             code_changes = await phab_client.get_differential_code_changes(revision_id)
-            return format_detailed_differential(revision, comments, code_changes)
+            return format_enhanced_differential(revision, comments, code_changes)
         except PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
@@ -212,6 +213,58 @@ def create_http_server() -> FastMCP:
         except Exception as e:
             return f"Unexpected error: {str(e)}"
 
+    @mcp.tool()
+    async def get_review_feedback(revision_id: str, context_lines: int = 7) -> str:
+        """Get review feedback with intelligent code context for addressing comments.
+
+        Perfect for understanding what needs to be changed and where to change it.
+        Analyzes comments and correlates them with specific code locations.
+
+        Args:
+            revision_id: Revision ID (without 'D' prefix)
+            context_lines: Number of lines of code context to show around each comment (default: 7)
+
+        Returns:
+            Formatted review feedback with code context and actionable guidance
+        """
+        try:
+            feedback_data = await phab_client.get_review_feedback_with_code_context(
+                revision_id, context_lines
+            )
+            return format_review_feedback_with_context(feedback_data)
+        except PhabricatorAPIError as e:
+            return f"Phabricator API Error: {str(e)}"
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
+    @mcp.tool()
+    async def add_inline_comment(
+        revision_id: str, file_path: str, line_number: int, content: str, is_new_file: bool = True
+    ) -> str:
+        """Add an inline comment to a specific line in a differential revision.
+
+        Perfect for automated code review or targeted feedback on specific lines.
+
+        Args:
+            revision_id: Revision ID (without 'D' prefix)
+            file_path: Path to the file to comment on
+            line_number: Line number to comment on
+            content: Comment text to add
+            is_new_file: Whether to comment on the new version (True) or old version (False) of the file
+
+        Returns:
+            Success message or error description
+        """
+        try:
+            await phab_client.add_inline_comment(
+                revision_id, file_path, line_number, content, is_new_file
+            )
+            return f"✓ Inline comment added successfully to {file_path}:{line_number} in revision D{revision_id}"
+        except PhabricatorAPIError as e:
+            return f"Phabricator API Error: {str(e)}"
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
     return mcp
 
 
@@ -238,7 +291,9 @@ def main():
     print("• subscribe_to_task - Subscribe users to task")
     print("• get_differential - Get differential revision details")
     print("• get_differential_detailed - Get comprehensive review with code changes")
+    print("• get_review_feedback - Get review feedback with intelligent code context")
     print("• add_differential_comment - Add comment to differential")
+    print("• add_inline_comment - Add inline comment to specific line (NEW!)")
     print("• accept_differential - Accept differential revision")
     print("• request_changes_differential - Request changes on differential")
     print("• subscribe_to_differential - Subscribe users to differential")
