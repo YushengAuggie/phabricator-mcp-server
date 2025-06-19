@@ -8,10 +8,9 @@ and dependency installation using either uv or pip.
 """
 
 import os
-import sys
-import asyncio
-import subprocess
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -19,8 +18,7 @@ def run_command(cmd, check=True, capture_output=False):
     """Run a shell command with proper error handling."""
     try:
         result = subprocess.run(
-            cmd, shell=True, check=check, 
-            capture_output=capture_output, text=True
+            cmd, shell=True, check=check, capture_output=capture_output, text=True
         )
         return result
     except subprocess.CalledProcessError as e:
@@ -44,7 +42,7 @@ def has_venv():
 def create_venv():
     """Create virtual environment using uv or venv."""
     print("Creating virtual environment...")
-    
+
     if has_uv():
         print("Using uv to create virtual environment...")
         result = run_command("uv venv")
@@ -57,14 +55,14 @@ def create_venv():
         if result is None:
             print("Failed to create virtual environment with venv")
             return False
-    
+
     return True
 
 
 def install_dependencies():
     """Install dependencies using uv or pip."""
     print("Installing dependencies...")
-    
+
     if has_uv():
         print("Using uv to install dependencies...")
         result = run_command("uv pip install -e .")
@@ -77,12 +75,12 @@ def install_dependencies():
             pip_cmd = r"venv\Scripts\pip"
         else:
             pip_cmd = "venv/bin/pip"
-        
+
         result = run_command(f"{pip_cmd} install -e .")
         if result is None:
             print("Failed to install dependencies with pip")
             return False
-    
+
     return True
 
 
@@ -110,7 +108,7 @@ def check_env_file():
         print("Create a .env file with your PHABRICATOR_TOKEN:")
         print("echo 'PHABRICATOR_TOKEN=your-token-here' > .env")
         return False
-    
+
     try:
         env_content = env_file.read_text()
         if "PHABRICATOR_TOKEN" not in env_content:
@@ -119,7 +117,7 @@ def check_env_file():
     except Exception as e:
         print(f"Error reading .env file: {e}")
         return False
-    
+
     return True
 
 
@@ -129,16 +127,16 @@ def setup_environment():
     if not Path("pyproject.toml").exists():
         print("Error: pyproject.toml not found!")
         return False
-    
+
     # Create virtual environment if it doesn't exist
     if not has_venv():
         if not create_venv():
             return False
-    
+
     # Install dependencies
     if not install_dependencies():
         return False
-    
+
     return True
 
 
@@ -146,14 +144,16 @@ def start_server(mode="stdio"):
     """Start the MCP server in either stdio or http mode."""
     # Add the src directory to the Python path
     src_dir = Path(__file__).parent / "src"
-    
+
     python_exe = get_python_executable()
-    
+
     # Set PYTHONPATH to include src directory
     env = os.environ.copy()
-    current_path = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{current_path}" if current_path else str(src_dir)
-    
+    # Clear PYTHONPATH to avoid conflicts with system paths
+    env["PYTHONPATH"] = str(src_dir)
+    # Also set PYTHONNOUSERSITE to ignore user site-packages
+    env["PYTHONNOUSERSITE"] = "1"
+
     if mode == "http":
         print("Starting Phabricator MCP HTTP Server...")
         print()
@@ -172,11 +172,12 @@ def start_server(mode="stdio"):
         print('}')
         print()
         print("Press Ctrl+C to stop the server")
-        
+
         try:
             # Run the HTTP server
-            subprocess.run([python_exe, str(src_dir / "servers" / "http_server.py")], 
-                         env=env, check=True)
+            subprocess.run(
+                [python_exe, str(src_dir / "servers" / "http_server.py")], env=env, check=True
+            )
         except KeyboardInterrupt:
             print("\nHTTP Server stopped by user")
         except subprocess.CalledProcessError as e:
@@ -185,7 +186,7 @@ def start_server(mode="stdio"):
         except Exception as e:
             print(f"Unexpected error: {e}")
             return False
-    
+
     else:  # stdio mode
         print("Starting Phabricator MCP Server (stdio mode)...")
         print()
@@ -206,11 +207,12 @@ def start_server(mode="stdio"):
         print('}')
         print()
         print("Press Ctrl+C to stop the server")
-        
+
         try:
             # Run the stdio server
-            subprocess.run([python_exe, str(src_dir / "servers" / "stdio_server.py")], 
-                         env=env, check=True)
+            subprocess.run(
+                [python_exe, str(src_dir / "servers" / "stdio_server.py")], env=env, check=True
+            )
         except KeyboardInterrupt:
             print("\nServer stopped by user")
         except subprocess.CalledProcessError as e:
@@ -219,33 +221,37 @@ def start_server(mode="stdio"):
         except Exception as e:
             print(f"Unexpected error: {e}")
             return False
-    
+
     return True
 
 
 def main():
     """Main entry point."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Phabricator MCP Server")
-    parser.add_argument("--mode", choices=["stdio", "http"], default="http",
-                      help="Server mode: http (default) or stdio")
+    parser.add_argument(
+        "--mode",
+        choices=["stdio", "http"],
+        default="http",
+        help="Server mode: http (default) or stdio",
+    )
     args = parser.parse_args()
-    
+
     print("Phabricator MCP Server Setup & Start")
     print("=" * 40)
-    
+
     # Check environment file
     check_env_file()
-    
+
     # Setup environment
     if not setup_environment():
         print("Failed to setup environment")
         sys.exit(1)
-    
+
     print("Environment setup complete!")
     print()
-    
+
     # Start server
     if not start_server(mode=args.mode):
         sys.exit(1)

@@ -257,10 +257,11 @@ class PhabricatorMCPServer:
                     )
 
                     from core.formatters import format_enhanced_differential
+
                     return [
                         types.TextContent(
-                            type="text", 
-                            text=format_enhanced_differential(revision, comments, code_changes)
+                            type="text",
+                            text=format_enhanced_differential(revision, comments, code_changes),
                         )
                     ]
 

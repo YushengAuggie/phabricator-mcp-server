@@ -2,37 +2,43 @@
 """HTTP server implementation using FastMCP for better reliability and performance."""
 
 import os
+import sys
 
-from dotenv import load_dotenv
-from fastmcp import FastMCP
+# Fix sys.path to avoid conflicts with system phabricator module
+# Move virtual environment paths to the front to prioritize them
+venv_paths = [p for p in sys.path if 'site-packages' in p]
+other_paths = [p for p in sys.path if 'site-packages' not in p]
 
-from core.client import PhabricatorAPIError, PhabricatorClient
-from core.formatters import (
-    format_differential_details,
-    format_enhanced_differential,
-    format_review_feedback_with_context,
-    format_task_details,
-)
+# Reconstruct sys.path with venv paths first
+sys.path = venv_paths + other_paths
+
+# Now we can safely import without conflicts
+import dotenv
+import fastmcp
+
+# Import our modules
+import core.client
+import core.formatters
 
 # Load environment variables
-load_dotenv()
+dotenv.load_dotenv()
 
 
-def create_http_server() -> FastMCP:
+def create_http_server() -> fastmcp.FastMCP:
     """Create and configure the FastMCP HTTP server.
 
     Returns:
         Configured FastMCP server instance
     """
     # Initialize FastMCP
-    mcp = FastMCP("Phabricator MCP Server")
+    mcp = fastmcp.FastMCP("Phabricator MCP Server")
 
     # Initialize Phabricator client
     token = os.getenv("PHABRICATOR_TOKEN")
     if not token:
         raise ValueError("PHABRICATOR_TOKEN environment variable is required")
 
-    phab_client = PhabricatorClient(token=token)
+    phab_client = core.client.PhabricatorClient(token=token)
 
     @mcp.tool()
     async def get_task(task_id: str) -> str:
@@ -47,8 +53,8 @@ def create_http_server() -> FastMCP:
         try:
             task = await phab_client.get_task(task_id)
             comments = await phab_client.get_task_comments(task_id)
-            return format_task_details(task, comments)
-        except PhabricatorAPIError as e:
+            return core.formatters.format_task_details(task, comments)
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -67,7 +73,7 @@ def create_http_server() -> FastMCP:
         try:
             await phab_client.add_task_comment(task_id, comment)
             return f"✓ Comment added successfully to task T{task_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -90,7 +96,7 @@ def create_http_server() -> FastMCP:
 
             await phab_client.subscribe_to_task(task_id, phid_list)
             return f"✓ {len(phid_list)} user(s) subscribed successfully to task T{task_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -109,8 +115,8 @@ def create_http_server() -> FastMCP:
             revision = await phab_client.get_differential_revision(revision_id)
             comments = await phab_client.get_differential_comments(revision_id)
             code_changes = await phab_client.get_differential_code_changes(revision_id)
-            return format_enhanced_differential(revision, comments, code_changes)
-        except PhabricatorAPIError as e:
+            return core.formatters.format_enhanced_differential(revision, comments, code_changes)
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -128,8 +134,8 @@ def create_http_server() -> FastMCP:
         try:
             revision = await phab_client.get_differential_revision(revision_id)
             comments = await phab_client.get_differential_comments(revision_id)
-            return format_differential_details(revision, comments)
-        except PhabricatorAPIError as e:
+            return core.formatters.format_differential_details(revision, comments)
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -148,7 +154,7 @@ def create_http_server() -> FastMCP:
         try:
             await phab_client.add_differential_comment(revision_id, comment)
             return f"✓ Comment added successfully to revision D{revision_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -166,7 +172,7 @@ def create_http_server() -> FastMCP:
         try:
             await phab_client.accept_differential_revision(revision_id)
             return f"✓ Revision D{revision_id} accepted successfully"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -185,7 +191,7 @@ def create_http_server() -> FastMCP:
         try:
             await phab_client.request_changes_differential_revision(revision_id, comment)
             return f"✓ Changes requested for revision D{revision_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -208,7 +214,7 @@ def create_http_server() -> FastMCP:
 
             await phab_client.subscribe_to_differential(revision_id, phid_list)
             return f"✓ {len(phid_list)} user(s) subscribed successfully to revision D{revision_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -231,8 +237,8 @@ def create_http_server() -> FastMCP:
             feedback_data = await phab_client.get_review_feedback_with_code_context(
                 revision_id, context_lines
             )
-            return format_review_feedback_with_context(feedback_data)
-        except PhabricatorAPIError as e:
+            return core.formatters.format_review_feedback_with_context(feedback_data)
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
@@ -260,7 +266,7 @@ def create_http_server() -> FastMCP:
                 revision_id, file_path, line_number, content, is_new_file
             )
             return f"✓ Inline comment added successfully to {file_path}:{line_number} in revision D{revision_id}"
-        except PhabricatorAPIError as e:
+        except core.client.PhabricatorAPIError as e:
             return f"Phabricator API Error: {str(e)}"
         except Exception as e:
             return f"Unexpected error: {str(e)}"
