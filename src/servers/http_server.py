@@ -4,6 +4,12 @@
 import os
 import sys
 
+import dotenv
+import fastmcp
+
+import core.client
+import core.formatters
+
 # Fix sys.path to avoid conflicts with system phabricator module
 # Move virtual environment paths to the front to prioritize them
 venv_paths = [p for p in sys.path if 'site-packages' in p]
@@ -11,14 +17,6 @@ other_paths = [p for p in sys.path if 'site-packages' not in p]
 
 # Reconstruct sys.path with venv paths first
 sys.path = venv_paths + other_paths
-
-# Now we can safely import without conflicts
-import dotenv
-import fastmcp
-
-# Import our modules
-import core.client
-import core.formatters
 
 # Load environment variables
 dotenv.load_dotenv()

@@ -9,13 +9,12 @@ This script shows how to:
 
 import asyncio
 import os
-from typing import Optional
 
 from src.core.client import PhabricatorClient
 from src.core.formatters import format_enhanced_differential
 
 
-async def demo_review_comments(revision_id: Optional[str] = None):
+async def demo_review_comments(revision_id: str | None = None):
     """Demonstrate retrieving and displaying review comments with context.
 
     Args:

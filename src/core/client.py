@@ -1,7 +1,8 @@
 """Enhanced Phabricator API client with proper error handling and type safety."""
 
 import os
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any
 
 from phabricator import Phabricator
 
@@ -15,7 +16,7 @@ class PhabricatorAPIError(Exception):
 class PhabricatorClient:
     """Enhanced Phabricator API client with comprehensive functionality."""
 
-    def __init__(self, token: Optional[str] = None, host: Optional[str] = None):
+    def __init__(self, token: str | None = None, host: str | None = None):
         """Initialize the Phabricator client.
 
         Args:
@@ -34,9 +35,9 @@ class PhabricatorClient:
             self.phab = Phabricator(host=host, token=token)
             self.phab.update_interfaces()
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to initialize Phabricator client: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to initialize Phabricator client: {str(e)}") from e
 
-    async def get_task(self, task_id: str) -> Dict:
+    async def get_task(self, task_id: str) -> dict:
         """Get detailed information about a specific task.
 
         Args:
@@ -53,12 +54,12 @@ class PhabricatorClient:
             if not task.data:
                 raise PhabricatorAPIError(f"Task T{task_id} not found")
             return task.data[0]
-        except ValueError:
-            raise PhabricatorAPIError(f"Invalid task ID: {task_id}")
+        except ValueError as e:
+            raise PhabricatorAPIError(f"Invalid task ID: {task_id}") from e
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to get task T{task_id}: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to get task T{task_id}: {str(e)}") from e
 
-    async def get_task_comments(self, task_id: str) -> List[Dict]:
+    async def get_task_comments(self, task_id: str) -> list[dict]:
         """Get all comments on a task.
 
         Args:
@@ -91,7 +92,7 @@ class PhabricatorClient:
             print(f"Warning: Could not get comments for task T{task_id}: {str(e)}")
             return []
 
-    async def add_task_comment(self, task_id: str, comment: str) -> Dict:
+    async def add_task_comment(self, task_id: str, comment: str) -> dict:
         """Add a comment to a task.
 
         Args:
@@ -107,9 +108,9 @@ class PhabricatorClient:
             )
             return result
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to add comment to task T{task_id}: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to add comment to task T{task_id}: {str(e)}") from e
 
-    async def subscribe_to_task(self, task_id: str, user_phids: List[str]) -> Dict:
+    async def subscribe_to_task(self, task_id: str, user_phids: list[str]) -> dict:
         """Subscribe users to a task.
 
         Args:
@@ -126,7 +127,9 @@ class PhabricatorClient:
             )
             return result
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to subscribe users to task T{task_id}: {str(e)}")
+            raise PhabricatorAPIError(
+                f"Failed to subscribe users to task T{task_id}: {str(e)}"
+            ) from e
 
     async def get_differential_revision(self, revision_id: str) -> dict:
         """Get detailed information about a differential revision.
@@ -152,70 +155,39 @@ class PhabricatorClient:
                     raise PhabricatorAPIError(f"Revision D{revision_id} not found")
                 return revisions[0]
             except Exception as e:
-                raise PhabricatorAPIError(f"Failed to get revision D{revision_id}: {str(e)}")
+                raise PhabricatorAPIError(f"Failed to get revision D{revision_id}: {str(e)}") from e
 
     async def get_differential_comments(self, revision_id: str) -> list:
         """Get all comments and code review details for a differential revision."""
         try:
-            # Try to get transactions with the proper attachment
-            try:
-                revision = self.phab.differential.revision.search(
-                    constraints={'ids': [int(revision_id)]},
-                    attachments={'reviewers': True, 'reviewers-extra': True, 'transactions': True},
-                )
-                if revision.data and revision.data[0].get('attachments', {}).get('transactions'):
-                    transactions = revision.data[0]['attachments']['transactions']['transactions']
-                    comments = []
-                    for t in transactions:
-                        if t.get('type') in (
-                            'comment',
-                            'inline',
-                            'accept',
-                            'reject',
-                            'request-changes',
-                        ):
-                            comments.append(t)
-                    return comments
-            except:
-                pass
+            # Try modern API with transactions attachment
+            revision = self.phab.differential.revision.search(
+                constraints={'ids': [int(revision_id)]},
+                attachments={'transactions': True},
+            )
+            if revision.data and revision.data[0].get('attachments', {}).get('transactions'):
+                transactions = revision.data[0]['attachments']['transactions']['transactions']
+                return [
+                    t
+                    for t in transactions
+                    if t.get('type') in ('comment', 'inline', 'accept', 'reject', 'request-changes')
+                ]
 
             # Fallback: try transaction.search directly
-            try:
-                transactions = self.phab.transaction.search(objectIdentifier=f"D{revision_id}")
-                if hasattr(transactions, 'data') and transactions.data:
-                    comments = []
-                    for t in transactions.data:
-                        if t.get('type') in (
-                            'comment',
-                            'inline',
-                            'accept',
-                            'reject',
-                            'request-changes',
-                        ):
-                            comments.append(t)
-                    return comments
-            except:
-                pass
-
-            # Fallback: try older comment API
-            try:
-                comments_result = self.phab.differential.getrevisioncomments(ids=[int(revision_id)])
-                if (
-                    hasattr(comments_result, 'response')
-                    and str(revision_id) in comments_result.response
-                ):
-                    return comments_result.response[str(revision_id)]
-                elif isinstance(comments_result, dict) and str(revision_id) in comments_result:
-                    return comments_result[str(revision_id)]
-            except:
-                pass
+            transactions = self.phab.transaction.search(objectIdentifier=f"D{revision_id}")
+            if hasattr(transactions, 'data') and transactions.data:
+                return [
+                    t
+                    for t in transactions.data
+                    if t.get('type') in ('comment', 'inline', 'accept', 'reject', 'request-changes')
+                ]
 
             return []
         except Exception as e:
             print(f"Warning: Could not get comments for revision D{revision_id}: {str(e)}")
             return []
 
-    async def get_differential_code_changes(self, revision_id: str) -> Dict:
+    async def get_differential_code_changes(self, revision_id: str) -> dict:
         """Get the actual code changes/diff for a differential revision."""
         try:
             # Get the diff details
@@ -240,9 +212,9 @@ class PhabricatorClient:
         except Exception as e:
             raise PhabricatorAPIError(
                 f"Failed to get code changes for revision D{revision_id}: {str(e)}"
-            )
+            ) from e
 
-    async def add_differential_comment(self, revision_id: str, comment: str) -> Dict:
+    async def add_differential_comment(self, revision_id: str, comment: str) -> dict:
         """Add a comment to a differential revision.
 
         Args:
@@ -259,9 +231,11 @@ class PhabricatorClient:
             )
             return result
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to add comment to revision D{revision_id}: {str(e)}")
+            raise PhabricatorAPIError(
+                f"Failed to add comment to revision D{revision_id}: {str(e)}"
+            ) from e
 
-    async def accept_differential_revision(self, revision_id: str) -> Dict:
+    async def accept_differential_revision(self, revision_id: str) -> dict:
         """Accept a differential revision.
 
         Args:
@@ -276,11 +250,11 @@ class PhabricatorClient:
             )
             return result
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to accept revision D{revision_id}: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to accept revision D{revision_id}: {str(e)}") from e
 
     async def request_changes_differential_revision(
-        self, revision_id: str, comment: Optional[str] = None
-    ) -> Dict:
+        self, revision_id: str, comment: str | None = None
+    ) -> dict:
         """Request changes on a differential revision.
 
         Args:
@@ -302,9 +276,9 @@ class PhabricatorClient:
         except Exception as e:
             raise PhabricatorAPIError(
                 f"Failed to request changes for revision D{revision_id}: {str(e)}"
-            )
+            ) from e
 
-    async def subscribe_to_differential(self, revision_id: str, user_phids: List[str]) -> Dict:
+    async def subscribe_to_differential(self, revision_id: str, user_phids: list[str]) -> dict:
         """Subscribe users to a differential revision.
 
         Args:
@@ -323,11 +297,11 @@ class PhabricatorClient:
         except Exception as e:
             raise PhabricatorAPIError(
                 f"Failed to subscribe users to revision D{revision_id}: {str(e)}"
-            )
+            ) from e
 
     async def get_revision_comments_with_context(
         self, revision_id: str, context_lines: int = 5
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get all comments for a revision with surrounding code context.
 
         Args:
@@ -363,8 +337,8 @@ class PhabricatorClient:
         return {'revision': revision, 'comments': enhanced_comments, 'code_changes': code_changes}
 
     async def _enhance_inline_comment(
-        self, comment: Dict[str, Any], code_changes: Dict[str, Any], context_lines: int
-    ) -> Dict[str, Any]:
+        self, comment: dict[str, Any], code_changes: dict[str, Any], context_lines: int
+    ) -> dict[str, Any]:
         """Enhance an inline comment with code context.
 
         Args:
@@ -405,8 +379,8 @@ class PhabricatorClient:
         return enhanced
 
     def _extract_code_context(
-        self, file_path: str, line_number: int, changes: List[Dict], context_lines: int
-    ) -> Optional[Dict[str, Any]]:
+        self, file_path: str, line_number: int, changes: list[dict], context_lines: int
+    ) -> dict[str, Any] | None:
         """Extract code context around a specific line.
 
         Args:
@@ -470,7 +444,7 @@ class PhabricatorClient:
         line_number: int,
         content: str,
         is_new_file: bool = True,
-    ) -> Dict:
+    ) -> dict:
         """Add an inline comment to a specific line in a differential revision.
 
         Args:
@@ -486,13 +460,11 @@ class PhabricatorClient:
         try:
             # First get the differential to find the diff ID
             revision = await self.get_differential_revision(revision_id)
-            diff_id = None
 
             # Try to get the current diff ID from the revision
             if 'fields' in revision and 'diffPHID' in revision['fields']:
-                # Get diff details to find the ID
-                diff_phid = revision['fields']['diffPHID']
                 # For now, we'll try to create the inline comment with revision info
+                pass
 
             # Use differential.createinline to create the inline comment
             result = self.phab.differential.createinline(
@@ -506,9 +478,9 @@ class PhabricatorClient:
         except Exception as e:
             raise PhabricatorAPIError(
                 f"Failed to add inline comment to revision D{revision_id}: {str(e)}"
-            )
+            ) from e
 
-    async def reply_to_comment(self, comment_phid: str, content: str) -> Dict:
+    async def reply_to_comment(self, comment_phid: str, content: str) -> dict:
         """Reply to an existing comment thread.
 
         Args:
@@ -525,9 +497,9 @@ class PhabricatorClient:
                 "Reply functionality requires specific Phabricator API endpoints"
             )
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to reply to comment: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to reply to comment: {str(e)}") from e
 
-    async def mark_inline_comment_done(self, comment_phid: str) -> Dict:
+    async def mark_inline_comment_done(self, comment_phid: str) -> dict:
         """Mark an inline comment as done/resolved.
 
         Args:
@@ -543,11 +515,11 @@ class PhabricatorClient:
                 "Mark done functionality requires specific Phabricator API endpoints"
             )
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to mark comment as done: {str(e)}")
+            raise PhabricatorAPIError(f"Failed to mark comment as done: {str(e)}") from e
 
     async def get_review_feedback_with_code_context(
         self, revision_id: str, context_lines: int = 7
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get review feedback with intelligent code context for addressing comments.
 
         This method helps address code review comments by:
@@ -605,11 +577,13 @@ class PhabricatorClient:
             }
 
         except Exception as e:
-            raise PhabricatorAPIError(f"Failed to get review feedback for D{revision_id}: {str(e)}")
+            raise PhabricatorAPIError(
+                f"Failed to get review feedback for D{revision_id}: {str(e)}"
+            ) from e
 
     async def _correlate_comment_with_code(
-        self, comment: Dict[str, Any], code_changes: Dict[str, Any], context_lines: int
-    ) -> Optional[Dict[str, Any]]:
+        self, comment: dict[str, Any], code_changes: dict[str, Any], context_lines: int
+    ) -> dict[str, Any] | None:
         """Correlate a comment with relevant code locations using content analysis."""
         content = comment.get('content', '').strip()
         if not content:
@@ -690,7 +664,6 @@ class PhabricatorClient:
 
     def _extract_code_keywords_from_comment(self, comment: str) -> list[str]:
         """Extract potential code-related keywords from a comment."""
-        import re
 
         keywords = []
 
@@ -819,8 +792,8 @@ class PhabricatorClient:
         offset: int,
         context_lines: int,
         file_path: str,
-        hunk: Dict,
-    ) -> Dict[str, Any]:
+        hunk: dict,
+    ) -> dict[str, Any]:
         """Get code context around a specific line."""
         start_idx = max(0, target_line_idx - context_lines)
         end_idx = min(len(lines), target_line_idx + context_lines + 1)
@@ -861,7 +834,7 @@ class PhabricatorClient:
             'target_line': offset + target_line_idx,
         }
 
-    def _generate_review_summary(self, review_feedback: list[Dict[str, Any]]) -> str:
+    def _generate_review_summary(self, review_feedback: list[dict[str, Any]]) -> str:
         """Generate a summary of review feedback to address."""
         if not review_feedback:
             return "No actionable review feedback found."

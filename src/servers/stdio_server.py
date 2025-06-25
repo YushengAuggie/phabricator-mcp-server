@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-from typing import List
 
 import mcp.server.stdio
 import mcp.types as types
@@ -37,7 +36,7 @@ class PhabricatorMCPServer:
         """Set up MCP tool handlers."""
 
         @self.server.list_tools()
-        async def handle_list_tools() -> List[types.Tool]:
+        async def handle_list_tools() -> list[types.Tool]:
             return [
                 types.Tool(
                     name="get-task",
@@ -209,7 +208,7 @@ class PhabricatorMCPServer:
             ]
 
         @self.server.call_tool()
-        async def handle_call_tool(name: str, arguments: dict) -> List[types.TextContent]:
+        async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             try:
                 if name == "get-task":
                     task = await self.phab_client.get_task(arguments["task_id"])

@@ -1,9 +1,9 @@
 """Output formatting utilities for Phabricator data."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def _get_field(data: Dict[str, Any], new_field: str, old_field: str, default: str) -> str:
+def _get_field(data: dict[str, Any], new_field: str, old_field: str, default: str) -> str:
     """Get field value from either new API format (with 'fields') or old format."""
     if 'fields' in data:
         # Navigate nested fields like 'status.name'
@@ -17,7 +17,7 @@ def _get_field(data: Dict[str, Any], new_field: str, old_field: str, default: st
     return str(data.get(old_field, default))
 
 
-def format_task_details(task: Dict[str, Any], comments: List[Dict[str, Any]] = None) -> str:
+def format_task_details(task: dict[str, Any], comments: list[dict[str, Any]] = None) -> str:
     """Format task with full details."""
     task_id = task.get('id', 'Unknown')
     title = _get_field(task, 'name', 'title', 'No title')
@@ -39,7 +39,7 @@ Description:
 
 
 def format_differential_details(
-    revision: Dict[str, Any], comments: List[Dict[str, Any]] = None
+    revision: dict[str, Any], comments: list[dict[str, Any]] = None
 ) -> str:
     """Format differential revision with full details."""
     revision_id = revision.get('id', 'Unknown')
@@ -61,7 +61,7 @@ Summary:
     return result
 
 
-def format_comments(comments: List[Dict[str, Any]]) -> str:
+def format_comments(comments: list[dict[str, Any]]) -> str:
     """Format comments for display."""
     if not comments:
         return "No comments"
@@ -96,7 +96,7 @@ def format_comments(comments: List[Dict[str, Any]]) -> str:
     return "\n\n".join(formatted)
 
 
-def format_code_changes(changes: List[Dict[str, Any]]) -> str:
+def format_code_changes(changes: list[dict[str, Any]]) -> str:
     """Format code changes for display."""
     if not changes:
         return "No code changes"
@@ -143,9 +143,9 @@ def format_code_changes(changes: List[Dict[str, Any]]) -> str:
 
 
 def format_differential_with_code(
-    revision: Dict[str, Any],
-    comments: List[Dict[str, Any]] = None,
-    code_changes: Dict[str, Any] = None,
+    revision: dict[str, Any],
+    comments: list[dict[str, Any]] = None,
+    code_changes: dict[str, Any] = None,
 ) -> str:
     """Format differential with code changes."""
     basic_info = format_differential_details(revision, comments)
@@ -166,7 +166,7 @@ Author: {code_changes.get('author', 'Unknown')}
 
 
 # Enhanced formatters for displaying comments with code context
-def format_comments_with_context(comments: List[Dict[str, Any]]) -> str:
+def format_comments_with_context(comments: list[dict[str, Any]]) -> str:
     """Format comments with code context for inline comments.
 
     Args:
@@ -252,7 +252,7 @@ def format_comments_with_context(comments: List[Dict[str, Any]]) -> str:
     return "\n".join(sections)
 
 
-def _format_review_action(action: Dict[str, Any]) -> str:
+def _format_review_action(action: dict[str, Any]) -> str:
     """Format a review action (accept/reject)."""
     action_type = action.get('type', action.get('action', 'unknown'))
     author = action.get('authorPHID', 'Unknown author')
@@ -271,7 +271,7 @@ def _format_review_action(action: Dict[str, Any]) -> str:
     return result
 
 
-def _format_general_comment(comment: Dict[str, Any]) -> str:
+def _format_general_comment(comment: dict[str, Any]) -> str:
     """Format a general comment."""
     author = comment.get('authorPHID', 'Unknown author')
     content = (
@@ -283,7 +283,7 @@ def _format_general_comment(comment: Dict[str, Any]) -> str:
     return f"💬 {author}:\n   {content}"
 
 
-def _format_inline_comment_with_context(comment: Dict[str, Any]) -> str:
+def _format_inline_comment_with_context(comment: dict[str, Any]) -> str:
     """Format an inline comment with code context if available."""
     author = comment.get('authorPHID', 'Unknown author')
     content = (
@@ -317,7 +317,7 @@ def _format_inline_comment_with_context(comment: Dict[str, Any]) -> str:
 
 
 def format_enhanced_differential(
-    revision: Dict[str, Any], comments: List[Dict[str, Any]], code_changes: Dict[str, Any]
+    revision: dict[str, Any], comments: list[dict[str, Any]], code_changes: dict[str, Any]
 ) -> str:
     """Format comprehensive differential review with enhanced comments.
 
@@ -354,7 +354,7 @@ Author: {code_changes.get('author', 'Unknown')}
     return basic_info.replace("\nComments:\nNo comments", "") + comments_section + changes_section
 
 
-def format_review_feedback_with_context(feedback_data: Dict[str, Any]) -> str:
+def format_review_feedback_with_context(feedback_data: dict[str, Any]) -> str:
     """Format review feedback with intelligent code context for addressing comments.
 
     Args:
@@ -366,8 +366,6 @@ def format_review_feedback_with_context(feedback_data: Dict[str, Any]) -> str:
     revision = feedback_data.get('revision', {})
     review_feedback = feedback_data.get('review_feedback', [])
     summary = feedback_data.get('summary', '')
-    total_comments = feedback_data.get('total_comments', 0)
-    comments_with_context = feedback_data.get('comments_with_context', 0)
 
     # Header with revision info
     revision_id = revision.get('id', 'Unknown')
@@ -454,11 +452,10 @@ def format_review_feedback_with_context(feedback_data: Dict[str, Any]) -> str:
     return "\n".join(result)
 
 
-def _format_feedback_item(feedback: Dict[str, Any]) -> str:
+def _format_feedback_item(feedback: dict[str, Any]) -> str:
     """Format an individual feedback item with context."""
     comment = feedback['comment']
     author = feedback.get('author', 'unknown')
-    feedback_type = feedback.get('type', 'general')
 
     parts = [f"💬 {author}: {comment}"]
 
