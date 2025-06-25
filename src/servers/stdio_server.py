@@ -26,11 +26,17 @@ class PhabricatorMCPServer:
     def __init__(self):
         """Initialize the server."""
         self.server = Server("phabricator-mcp-server")
-        token = os.getenv("PHABRICATOR_TOKEN")
-        if not token:
-            raise ValueError("PHABRICATOR_TOKEN environment variable is required")
-        self.phab_client = PhabricatorClient(token=token)
+        self.phab_client = None
         self.setup_handlers()
+
+    def _get_phab_client(self) -> PhabricatorClient:
+        """Get or create the Phabricator client lazily."""
+        if self.phab_client is None:
+            token = os.getenv("PHABRICATOR_TOKEN")
+            if not token:
+                raise ValueError("PHABRICATOR_TOKEN environment variable is required")
+            self.phab_client = PhabricatorClient(token=token)
+        return self.phab_client
 
     def setup_handlers(self):
         """Set up MCP tool handlers."""
@@ -211,17 +217,17 @@ class PhabricatorMCPServer:
         async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             try:
                 if name == "get-task":
-                    task = await self.phab_client.get_task(arguments["task_id"])
-                    comments = await self.phab_client.get_task_comments(arguments["task_id"])
+                    phab_client = self._get_phab_client()
+                    task = await phab_client.get_task(arguments["task_id"])
+                    comments = await phab_client.get_task_comments(arguments["task_id"])
 
                     return [
                         types.TextContent(type="text", text=format_task_details(task, comments))
                     ]
 
                 elif name == "add-task-comment":
-                    await self.phab_client.add_task_comment(
-                        arguments["task_id"], arguments["comment"]
-                    )
+                    phab_client = self._get_phab_client()
+                    await phab_client.add_task_comment(arguments["task_id"], arguments["comment"])
                     return [
                         types.TextContent(
                             type="text",
@@ -236,7 +242,8 @@ class PhabricatorMCPServer:
                             phid.strip() for phid in user_phids.split(',') if phid.strip()
                         ]
 
-                    await self.phab_client.subscribe_to_task(arguments["task_id"], user_phids)
+                    phab_client = self._get_phab_client()
+                    await phab_client.subscribe_to_task(arguments["task_id"], user_phids)
                     return [
                         types.TextContent(
                             type="text",
@@ -245,13 +252,10 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "get-differential-detailed":
-                    revision = await self.phab_client.get_differential_revision(
-                        arguments["revision_id"]
-                    )
-                    comments = await self.phab_client.get_differential_comments(
-                        arguments["revision_id"]
-                    )
-                    code_changes = await self.phab_client.get_differential_code_changes(
+                    phab_client = self._get_phab_client()
+                    revision = await phab_client.get_differential_revision(arguments["revision_id"])
+                    comments = await phab_client.get_differential_comments(arguments["revision_id"])
+                    code_changes = await phab_client.get_differential_code_changes(
                         arguments["revision_id"]
                     )
 
@@ -265,12 +269,9 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "get-differential":
-                    revision = await self.phab_client.get_differential_revision(
-                        arguments["revision_id"]
-                    )
-                    comments = await self.phab_client.get_differential_comments(
-                        arguments["revision_id"]
-                    )
+                    phab_client = self._get_phab_client()
+                    revision = await phab_client.get_differential_revision(arguments["revision_id"])
+                    comments = await phab_client.get_differential_comments(arguments["revision_id"])
 
                     return [
                         types.TextContent(
@@ -279,7 +280,8 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "add-differential-comment":
-                    await self.phab_client.add_differential_comment(
+                    phab_client = self._get_phab_client()
+                    await phab_client.add_differential_comment(
                         arguments["revision_id"], arguments["comment"]
                     )
                     return [
@@ -290,7 +292,8 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "accept-differential":
-                    await self.phab_client.accept_differential_revision(arguments["revision_id"])
+                    phab_client = self._get_phab_client()
+                    await phab_client.accept_differential_revision(arguments["revision_id"])
                     return [
                         types.TextContent(
                             type="text",
@@ -299,7 +302,8 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "request-changes-differential":
-                    await self.phab_client.request_changes_differential_revision(
+                    phab_client = self._get_phab_client()
+                    await phab_client.request_changes_differential_revision(
                         arguments["revision_id"], arguments.get("comment")
                     )
                     return [
@@ -316,7 +320,8 @@ class PhabricatorMCPServer:
                             phid.strip() for phid in user_phids.split(',') if phid.strip()
                         ]
 
-                    await self.phab_client.subscribe_to_differential(
+                    phab_client = self._get_phab_client()
+                    await phab_client.subscribe_to_differential(
                         arguments["revision_id"], user_phids
                     )
                     return [
@@ -327,8 +332,9 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "get-review-feedback":
+                    phab_client = self._get_phab_client()
                     context_lines = int(arguments.get("context_lines", 7))
-                    feedback_data = await self.phab_client.get_review_feedback_with_code_context(
+                    feedback_data = await phab_client.get_review_feedback_with_code_context(
                         arguments["revision_id"], context_lines
                     )
 
@@ -346,7 +352,8 @@ class PhabricatorMCPServer:
                         "yes",
                     )
 
-                    await self.phab_client.add_inline_comment(
+                    phab_client = self._get_phab_client()
+                    await phab_client.add_inline_comment(
                         arguments["revision_id"],
                         arguments["file_path"],
                         line_number,
