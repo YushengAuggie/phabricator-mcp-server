@@ -161,26 +161,34 @@ class PhabricatorClient:
         """Get all comments and code review details for a differential revision."""
         try:
             # Try modern API with transactions attachment
-            revision = self.phab.differential.revision.search(
-                constraints={'ids': [int(revision_id)]},
-                attachments={'transactions': True},
-            )
-            if revision.data and revision.data[0].get('attachments', {}).get('transactions'):
-                transactions = revision.data[0]['attachments']['transactions']['transactions']
-                return [
-                    t
-                    for t in transactions
-                    if t.get('type') in ('comment', 'inline', 'accept', 'reject', 'request-changes')
-                ]
+            try:
+                revision = self.phab.differential.revision.search(
+                    constraints={'ids': [int(revision_id)]},
+                    attachments={'transactions': True},
+                )
+                if revision.data and revision.data[0].get('attachments', {}).get('transactions'):
+                    transactions = revision.data[0]['attachments']['transactions']['transactions']
+                    return [
+                        t
+                        for t in transactions
+                        if t.get('type')
+                        in ('comment', 'inline', 'accept', 'reject', 'request-changes')
+                    ]
+            except Exception:
+                pass
 
-            # Fallback: try transaction.search directly
-            transactions = self.phab.transaction.search(objectIdentifier=f"D{revision_id}")
-            if hasattr(transactions, 'data') and transactions.data:
-                return [
-                    t
-                    for t in transactions.data
-                    if t.get('type') in ('comment', 'inline', 'accept', 'reject', 'request-changes')
-                ]
+            # Fallback: try older differential API for comments
+            try:
+                comments_result = self.phab.differential.getrevisioncomments(ids=[int(revision_id)])
+                if isinstance(comments_result, dict) and str(revision_id) in comments_result:
+                    return comments_result[str(revision_id)]
+                elif (
+                    hasattr(comments_result, 'response')
+                    and str(revision_id) in comments_result.response
+                ):
+                    return comments_result.response[str(revision_id)]
+            except Exception:
+                pass
 
             return []
         except Exception as e:
