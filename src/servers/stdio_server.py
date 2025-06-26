@@ -47,169 +47,187 @@ class PhabricatorMCPServer:
                 types.Tool(
                     name="get-task",
                     description="Get details of a Phabricator task",
-                    arguments=[
-                        types.ToolArgument(
-                            name="task_id",
-                            description="Task ID (without 'T' prefix)",
-                            required=True,
-                        )
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "Task ID (without 'T' prefix)",
+                            }
+                        },
+                        "required": ["task_id"],
+                    },
                 ),
                 types.Tool(
                     name="add-task-comment",
                     description="Add a comment to a Phabricator task",
-                    arguments=[
-                        types.ToolArgument(
-                            name="task_id",
-                            description="Task ID (without 'T' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="comment", description="Comment text to add", required=True
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "Task ID (without 'T' prefix)",
+                            },
+                            "comment": {"type": "string", "description": "Comment text to add"},
+                        },
+                        "required": ["task_id", "comment"],
+                    },
                 ),
                 types.Tool(
                     name="subscribe-to-task",
                     description="Subscribe users to a Phabricator task",
-                    arguments=[
-                        types.ToolArgument(
-                            name="task_id",
-                            description="Task ID (without 'T' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="user_phids",
-                            description="Comma-separated list of user PHIDs to subscribe",
-                            required=True,
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "Task ID (without 'T' prefix)",
+                            },
+                            "user_phids": {
+                                "type": "string",
+                                "description": "Comma-separated list of user PHIDs to subscribe",
+                            },
+                        },
+                        "required": ["task_id", "user_phids"],
+                    },
                 ),
                 types.Tool(
                     name="get-differential-detailed",
                     description="Get detailed code review information including comments and code changes",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        )
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            }
+                        },
+                        "required": ["revision_id"],
+                    },
                 ),
                 types.Tool(
                     name="get-differential",
                     description="Get details of a Phabricator differential revision",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        )
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            }
+                        },
+                        "required": ["revision_id"],
+                    },
                 ),
                 types.Tool(
                     name="add-differential-comment",
                     description="Add a comment to a differential revision",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="comment", description="Comment text to add", required=True
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "comment": {"type": "string", "description": "Comment text to add"},
+                        },
+                        "required": ["revision_id", "comment"],
+                    },
                 ),
                 types.Tool(
                     name="accept-differential",
                     description="Accept a differential revision",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        )
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            }
+                        },
+                        "required": ["revision_id"],
+                    },
                 ),
                 types.Tool(
                     name="request-changes-differential",
                     description="Request changes on a differential revision",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="comment",
-                            description="Optional comment explaining the requested changes",
-                            required=False,
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "Optional comment explaining the requested changes",
+                            },
+                        },
+                        "required": ["revision_id"],
+                    },
                 ),
                 types.Tool(
                     name="subscribe-to-differential",
                     description="Subscribe users to a differential revision",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="user_phids",
-                            description="Comma-separated list of user PHIDs to subscribe",
-                            required=True,
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "user_phids": {
+                                "type": "string",
+                                "description": "Comma-separated list of user PHIDs to subscribe",
+                            },
+                        },
+                        "required": ["revision_id", "user_phids"],
+                    },
                 ),
                 types.Tool(
                     name="get-review-feedback",
                     description="Get review feedback with intelligent code context for addressing comments. Perfect for understanding what needs to be changed and where to change it.",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="context_lines",
-                            description="Number of lines of code context to show around each comment (default: 7)",
-                            required=False,
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "context_lines": {
+                                "type": "string",
+                                "description": "Number of lines of code context to show around each comment (default: 7)",
+                            },
+                        },
+                        "required": ["revision_id"],
+                    },
                 ),
                 types.Tool(
                     name="add-inline-comment",
                     description="Add an inline comment to a specific line in a differential revision. Perfect for automated code review or targeted feedback.",
-                    arguments=[
-                        types.ToolArgument(
-                            name="revision_id",
-                            description="Revision ID (without 'D' prefix)",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="file_path",
-                            description="Path to the file to comment on",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="line_number",
-                            description="Line number to comment on",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="content",
-                            description="Comment text to add",
-                            required=True,
-                        ),
-                        types.ToolArgument(
-                            name="is_new_file",
-                            description="Whether to comment on the new version (true) or old version (false) of the file (default: true)",
-                            required=False,
-                        ),
-                    ],
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "revision_id": {
+                                "type": "string",
+                                "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "file_path": {
+                                "type": "string",
+                                "description": "Path to the file to comment on",
+                            },
+                            "line_number": {
+                                "type": "string",
+                                "description": "Line number to comment on",
+                            },
+                            "content": {"type": "string", "description": "Comment text to add"},
+                            "is_new_file": {
+                                "type": "string",
+                                "description": "Whether to comment on the new version (true) or old version (false) of the file (default: true)",
+                            },
+                        },
+                        "required": ["revision_id", "file_path", "line_number", "content"],
+                    },
                 ),
             ]
 
