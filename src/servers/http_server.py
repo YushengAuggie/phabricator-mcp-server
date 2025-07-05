@@ -4,9 +4,6 @@
 import os
 import sys
 
-import dotenv
-import fastmcp
-
 # Fix sys.path to avoid conflicts with system phabricator module
 # Move virtual environment paths to the front to prioritize them
 venv_paths = [p for p in sys.path if 'site-packages' in p]
@@ -15,8 +12,11 @@ other_paths = [p for p in sys.path if 'site-packages' not in p]
 # Reconstruct sys.path with venv paths first
 sys.path = venv_paths + other_paths
 
-from core.client import PhabricatorAPIError, PhabricatorClient
-from core.formatters import (
+import dotenv  # noqa: E402
+import fastmcp  # noqa: E402
+
+from core.client import PhabricatorAPIError, PhabricatorClient  # noqa: E402
+from core.formatters import (  # noqa: E402
     format_differential_details,
     format_enhanced_differential,
     format_review_feedback_with_context,
