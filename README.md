@@ -4,6 +4,12 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 
 ## ✨ Features
 
+### 🔑 **Personal Authentication**
+- **Per-User Authentication**: Configure your personal Phabricator API token in your MCP client
+- **User Attribution**: Comments and reviews appear under YOUR name instead of a shared service account
+- **Flexible Configuration**: Supports both personal tokens and shared environment variables
+- **Standard MCP Integration**: Follows MCP ecosystem best practices for authentication
+
 ### 🎯 **Core Task Management**
 - **Task Operations**: View task details, read comments, add comments, subscribe users to tasks
 - **Rich Formatting**: Well-structured output with task metadata, status, priority, and full comment threads
@@ -86,14 +92,67 @@ python src/servers/stdio_server.py
 
 ## ⚙️ Configuration
 
-Create `.env` file in project root:
+### **Authentication Configuration**
+
+The server supports hybrid authentication with two modes:
+
+1. **Personal API Token**: Configure your personal Phabricator API token in your MCP client for user attribution
+2. **Environment Variable Fallback**: Use a shared service account token via environment variables
+
+**Getting Your API Token:**
+1. Go to your Phabricator instance → Settings → API Tokens
+2. Create a new token with appropriate permissions
+3. Use this token in your MCP client configuration
+
+Configure your Phabricator credentials in your MCP client:
+
+#### **For HTTP/SSE Transport (Recommended)**
+
+**Claude Code CLI:**
+```bash
+claude mcp add phabricator \
+  --url http://localhost:8932/sse \
+  --env PHABRICATOR_TOKEN=your-api-token-here
+```
+
+**Manual Configuration:**
+```json
+{
+  "mcpServers": {
+    "phabricator": {
+      "url": "http://localhost:8932/sse",
+      "env": {
+        "PHABRICATOR_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}
+```
+
+#### **For stdio Transport**
+
+```json
+{
+  "mcpServers": {
+    "phabricator": {
+      "command": "python",
+      "args": ["path/to/phabricator-mcp-server/start.py"],
+      "cwd": "path/to/phabricator-mcp-server",
+      "env": {
+        "PHABRICATOR_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}
+```
+
+#### **Server Environment Variables (Fallback)**
+
+Create `.env` file in project root for fallback authentication:
 
 ```env
-# Required: Your Phabricator API token (32 characters)
-PHABRICATOR_TOKEN=your-api-token-here
-
-# Required: Your Phabricator API URL
-PHABRICATOR_URL=https://your-phabricator-instance.com/api/
+# Fallback: Shared service account token
+PHABRICATOR_TOKEN=your-shared-token-here
 
 # Optional: Custom server port (default: 8932)
 # MCP_SERVER_PORT=8932

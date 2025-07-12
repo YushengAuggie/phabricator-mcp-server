@@ -1,7 +1,6 @@
 """Stdio server implementation for MCP compatibility."""
 
 import asyncio
-import os
 
 import mcp.server.stdio
 import mcp.types as types
@@ -10,6 +9,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 
 from core.client import PhabricatorAPIError, PhabricatorClient
+from core.client_manager import ClientManager
 from core.formatters import (
     format_differential_details,
     format_review_feedback_with_context,
@@ -26,17 +26,20 @@ class PhabricatorMCPServer:
     def __init__(self):
         """Initialize the server."""
         self.server = Server("phabricator-mcp-server")
-        self.phab_client = None
+        self.client_manager = ClientManager()
         self.setup_handlers()
 
-    def _get_phab_client(self) -> PhabricatorClient:
-        """Get or create the Phabricator client lazily."""
-        if self.phab_client is None:
-            token = os.getenv("PHABRICATOR_TOKEN")
-            if not token:
-                raise ValueError("PHABRICATOR_TOKEN environment variable is required")
-            self.phab_client = PhabricatorClient(token=token)
-        return self.phab_client
+    def _get_phab_client(self, api_token: str | None = None) -> PhabricatorClient:
+        """Get a Phabricator client using the ClientManager.
+
+        Args:
+            api_token: Optional personal API token
+
+        Returns:
+            PhabricatorClient instance
+        """
+        return self.client_manager.get_client(api_token)
+
 
     def setup_handlers(self):
         """Set up MCP tool handlers."""
@@ -45,7 +48,7 @@ class PhabricatorMCPServer:
         async def handle_list_tools() -> list[types.Tool]:
             return [
                 types.Tool(
-                    name="get-task",
+                    name="get_task",
                     description="Get details of a Phabricator task",
                     inputSchema={
                         "type": "object",
@@ -53,13 +56,17 @@ class PhabricatorMCPServer:
                             "task_id": {
                                 "type": "string",
                                 "description": "Task ID (without 'T' prefix)",
+                            },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
                             }
                         },
                         "required": ["task_id"],
                     },
                 ),
                 types.Tool(
-                    name="add-task-comment",
+                    name="add_task_comment",
                     description="Add a comment to a Phabricator task",
                     inputSchema={
                         "type": "object",
@@ -69,12 +76,16 @@ class PhabricatorMCPServer:
                                 "description": "Task ID (without 'T' prefix)",
                             },
                             "comment": {"type": "string", "description": "Comment text to add"},
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["task_id", "comment"],
                     },
                 ),
                 types.Tool(
-                    name="subscribe-to-task",
+                    name="subscribe_to_task",
                     description="Subscribe users to a Phabricator task",
                     inputSchema={
                         "type": "object",
@@ -87,12 +98,16 @@ class PhabricatorMCPServer:
                                 "type": "string",
                                 "description": "Comma-separated list of user PHIDs to subscribe",
                             },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["task_id", "user_phids"],
                     },
                 ),
                 types.Tool(
-                    name="get-differential-detailed",
+                    name="get_differential_detailed",
                     description="Get detailed code review information including comments and code changes",
                     inputSchema={
                         "type": "object",
@@ -100,13 +115,17 @@ class PhabricatorMCPServer:
                             "revision_id": {
                                 "type": "string",
                                 "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
                             }
                         },
                         "required": ["revision_id"],
                     },
                 ),
                 types.Tool(
-                    name="get-differential",
+                    name="get_differential",
                     description="Get details of a Phabricator differential revision",
                     inputSchema={
                         "type": "object",
@@ -114,13 +133,17 @@ class PhabricatorMCPServer:
                             "revision_id": {
                                 "type": "string",
                                 "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
                             }
                         },
                         "required": ["revision_id"],
                     },
                 ),
                 types.Tool(
-                    name="add-differential-comment",
+                    name="add_differential_comment",
                     description="Add a comment to a differential revision",
                     inputSchema={
                         "type": "object",
@@ -130,12 +153,16 @@ class PhabricatorMCPServer:
                                 "description": "Revision ID (without 'D' prefix)",
                             },
                             "comment": {"type": "string", "description": "Comment text to add"},
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["revision_id", "comment"],
                     },
                 ),
                 types.Tool(
-                    name="accept-differential",
+                    name="accept_differential",
                     description="Accept a differential revision",
                     inputSchema={
                         "type": "object",
@@ -143,13 +170,17 @@ class PhabricatorMCPServer:
                             "revision_id": {
                                 "type": "string",
                                 "description": "Revision ID (without 'D' prefix)",
+                            },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
                             }
                         },
                         "required": ["revision_id"],
                     },
                 ),
                 types.Tool(
-                    name="request-changes-differential",
+                    name="request_changes_differential",
                     description="Request changes on a differential revision",
                     inputSchema={
                         "type": "object",
@@ -162,12 +193,16 @@ class PhabricatorMCPServer:
                                 "type": "string",
                                 "description": "Optional comment explaining the requested changes",
                             },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["revision_id"],
                     },
                 ),
                 types.Tool(
-                    name="subscribe-to-differential",
+                    name="subscribe_to_differential",
                     description="Subscribe users to a differential revision",
                     inputSchema={
                         "type": "object",
@@ -180,12 +215,16 @@ class PhabricatorMCPServer:
                                 "type": "string",
                                 "description": "Comma-separated list of user PHIDs to subscribe",
                             },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["revision_id", "user_phids"],
                     },
                 ),
                 types.Tool(
-                    name="get-review-feedback",
+                    name="get_review_feedback",
                     description="Get review feedback with intelligent code context for addressing comments. Perfect for understanding what needs to be changed and where to change it.",
                     inputSchema={
                         "type": "object",
@@ -198,12 +237,16 @@ class PhabricatorMCPServer:
                                 "type": "string",
                                 "description": "Number of lines of code context to show around each comment (default: 7)",
                             },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["revision_id"],
                     },
                 ),
                 types.Tool(
-                    name="add-inline-comment",
+                    name="add_inline_comment",
                     description="Add an inline comment to a specific line in a differential revision. Perfect for automated code review or targeted feedback.",
                     inputSchema={
                         "type": "object",
@@ -225,6 +268,10 @@ class PhabricatorMCPServer:
                                 "type": "string",
                                 "description": "Whether to comment on the new version (true) or old version (false) of the file (default: true)",
                             },
+                            "api_token": {
+                                "type": "string",
+                                "description": "Optional API token (deprecated, use environment variables instead)"
+                            }
                         },
                         "required": ["revision_id", "file_path", "line_number", "content"],
                     },
@@ -234,8 +281,8 @@ class PhabricatorMCPServer:
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             try:
-                if name == "get-task":
-                    phab_client = self._get_phab_client()
+                if name == "get_task":
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     task = await phab_client.get_task(arguments["task_id"])
                     comments = await phab_client.get_task_comments(arguments["task_id"])
 
@@ -243,7 +290,7 @@ class PhabricatorMCPServer:
                         types.TextContent(type="text", text=format_task_details(task, comments))
                     ]
 
-                elif name == "add-task-comment":
+                elif name == "add_task_comment":
                     phab_client = self._get_phab_client()
                     await phab_client.add_task_comment(arguments["task_id"], arguments["comment"])
                     return [
@@ -253,7 +300,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "subscribe-to-task":
+                elif name == "subscribe_to_task":
                     user_phids = arguments["user_phids"]
                     if isinstance(user_phids, str):
                         user_phids = [
@@ -269,7 +316,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "get-differential-detailed":
+                elif name == "get_differential_detailed":
                     phab_client = self._get_phab_client()
                     revision = await phab_client.get_differential_revision(arguments["revision_id"])
                     comments = await phab_client.get_differential_comments(arguments["revision_id"])
@@ -286,8 +333,8 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "get-differential":
-                    phab_client = self._get_phab_client()
+                elif name == "get_differential":
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     revision = await phab_client.get_differential_revision(arguments["revision_id"])
                     comments = await phab_client.get_differential_comments(arguments["revision_id"])
 
@@ -297,7 +344,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "add-differential-comment":
+                elif name == "add_differential_comment":
                     phab_client = self._get_phab_client()
                     await phab_client.add_differential_comment(
                         arguments["revision_id"], arguments["comment"]
@@ -309,7 +356,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "accept-differential":
+                elif name == "accept_differential":
                     phab_client = self._get_phab_client()
                     await phab_client.accept_differential_revision(arguments["revision_id"])
                     return [
@@ -319,7 +366,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "request-changes-differential":
+                elif name == "request_changes_differential":
                     phab_client = self._get_phab_client()
                     await phab_client.request_changes_differential_revision(
                         arguments["revision_id"], arguments.get("comment")
@@ -331,7 +378,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "subscribe-to-differential":
+                elif name == "subscribe_to_differential":
                     user_phids = arguments["user_phids"]
                     if isinstance(user_phids, str):
                         user_phids = [
@@ -349,7 +396,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "get-review-feedback":
+                elif name == "get_review_feedback":
                     phab_client = self._get_phab_client()
                     context_lines = int(arguments.get("context_lines", 7))
                     feedback_data = await phab_client.get_review_feedback_with_code_context(
@@ -362,7 +409,7 @@ class PhabricatorMCPServer:
                         )
                     ]
 
-                elif name == "add-inline-comment":
+                elif name == "add_inline_comment":
                     line_number = int(arguments["line_number"])
                     is_new_file = arguments.get("is_new_file", "true").lower() in (
                         "true",
