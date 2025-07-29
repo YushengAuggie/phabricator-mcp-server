@@ -4,7 +4,7 @@ import os
 import re
 from typing import Any
 
-from phabricator import Phabricator
+from .phabricator_compat import create_phabricator_client
 
 
 class PhabricatorAPIError(Exception):
@@ -32,8 +32,7 @@ class PhabricatorClient:
             host = os.getenv("PHABRICATOR_URL", "https://phabricator.wikimedia.org/api/")
 
         try:
-            self.phab = Phabricator(host=host, token=token)
-            self.phab.update_interfaces()
+            self.phab = create_phabricator_client(host=host, token=token)
         except Exception as e:
             raise PhabricatorAPIError(f"Failed to initialize Phabricator client: {str(e)}") from e
 

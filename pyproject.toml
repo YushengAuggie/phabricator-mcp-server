@@ -13,7 +13,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "typing-extensions>=4.7.0",
     "python-dotenv>=1.0.0",
-    "phabricator>=0.8.0",
+    "phabricator>=0.0.1220337",
     "fastmcp>=0.2.0",
 ]
 
