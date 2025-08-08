@@ -29,7 +29,9 @@ class PhabricatorClient:
             raise ValueError("PHABRICATOR_TOKEN environment variable is required")
 
         if host is None:
-            host = os.getenv("PHABRICATOR_URL", "https://phabricator.wikimedia.org/api/")
+            host = os.getenv("PHABRICATOR_URL")
+            if not host or not host.strip():
+                host = "https://phabricator.wikimedia.org/api/"
 
         try:
             self.phab = create_phabricator_client(host=host, token=token)

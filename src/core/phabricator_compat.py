@@ -58,7 +58,7 @@ def create_phabricator_client(host: str, token: str) -> Any:
                 client.host = host
                 client.token = token
             except Exception as e:
-                raise ImportError(f"Could not initialize Phabricator client: {e}")
+                raise ImportError(f"Could not initialize Phabricator client: {e}") from e
 
     # Try to update interfaces if the method exists
     if hasattr(client, 'update_interfaces'):

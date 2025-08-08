@@ -94,26 +94,38 @@ python src/servers/stdio_server.py
 
 ### **Authentication Configuration**
 
-The server supports hybrid authentication with two modes:
+The server supports **hybrid authentication** with two modes that work seamlessly together:
 
-1. **Personal API Token**: Configure your personal Phabricator API token in your MCP client for user attribution
+1. **Personal API Token (Recommended)**: Pass your personal token through MCP client configuration for user attribution
 2. **Environment Variable Fallback**: Use a shared service account token via environment variables
 
-**Getting Your API Token:**
+**🔑 Getting Your API Token:**
 1. Go to your Phabricator instance → Settings → API Tokens
 2. Create a new token with appropriate permissions
-3. Use this token in your MCP client configuration
+3. Copy the 32-character token for use in configuration
 
-Configure your Phabricator credentials in your MCP client:
+**🌐 Finding Your Phabricator URL:**
+Your Phabricator API URL should end with `/api/` and typically looks like:
+- `https://phabricator.example.com/api/`
+- `https://phab.yourcompany.com/api/`
+- `https://your-domain.phabricator.com/api/`
 
-#### **For HTTP/SSE Transport (Recommended)**
+If unsure, check your Phabricator instance's main page - the URL is usually `[your-base-url]/api/`
 
-**Claude Code CLI:**
+### **🚀 MCP Client Configuration**
+
+#### **HTTP/SSE Transport (Recommended)**
+
+The server automatically detects your environment configuration:
+
+**Claude Code CLI (Easiest):**
 ```bash
-claude mcp add phabricator \
-  --url http://localhost:8932/sse \
-  --env PHABRICATOR_TOKEN=your-api-token-here
+claude mcp add --transport sse phabricator http://localhost:8932/sse \
+  --env "PHABRICATOR_TOKEN=api-xxxxxxx" \
+  --env "PHABRICATOR_URL=https://example.com/api/"
 ```
+
+> Replace `api-xxxxxxx` with your actual API token and `https://example.com/api/` with your Phabricator instance URL
 
 **Manual Configuration:**
 ```json
@@ -122,14 +134,17 @@ claude mcp add phabricator \
     "phabricator": {
       "url": "http://localhost:8932/sse",
       "env": {
-        "PHABRICATOR_TOKEN": "your-api-token-here"
+        "PHABRICATOR_TOKEN": "api-xxxxxxx",
+        "PHABRICATOR_URL": "https://example.com/api/"
       }
     }
   }
 }
 ```
 
-#### **For stdio Transport**
+#### **stdio Transport**
+
+For Claude Desktop and direct MCP integration:
 
 ```json
 {
@@ -139,23 +154,67 @@ claude mcp add phabricator \
       "args": ["path/to/phabricator-mcp-server/start.py"],
       "cwd": "path/to/phabricator-mcp-server",
       "env": {
-        "PHABRICATOR_TOKEN": "your-api-token-here"
+        "PHABRICATOR_TOKEN": "api-xxxxxxx",
+        "PHABRICATOR_URL": "https://example.com/api/"
       }
     }
   }
 }
 ```
 
+#### **Multiple Authentication Options**
+
+The server supports multiple ways to authenticate:
+
+1. **Personal Token in Tools**: Some tools accept an `api_token` parameter
+2. **Environment Variables**: Set `PHABRICATOR_TOKEN` in MCP client config
+3. **Fallback Token**: Create `.env` file in server directory
+
+**Priority Order**: Personal token → MCP environment → Server `.env` file
+
 #### **Server Environment Variables (Fallback)**
 
 Create `.env` file in project root for fallback authentication:
 
 ```env
-# Fallback: Shared service account token
+# Fallback: Shared service account token  
 PHABRICATOR_TOKEN=your-shared-token-here
+
+# Optional: Custom Phabricator URL (auto-detected from token by default)
+# PHABRICATOR_URL=https://your-phabricator-instance.com/api/
 
 # Optional: Custom server port (default: 8932)
 # MCP_SERVER_PORT=8932
+```
+
+### **🔧 Advanced Configuration**
+
+#### **User Attribution**
+- **Personal tokens**: Comments appear under YOUR name
+- **Shared tokens**: Comments appear under the service account name
+- **Mixed usage**: Different tools can use different tokens
+
+#### **Token Security**
+- Tokens are passed securely through MCP protocol
+- No tokens stored on disk (except optional `.env` fallback)
+- Each client can use their own personal token
+
+#### **Troubleshooting Authentication**
+
+If you see authentication errors:
+
+1. **Check token validity**: Test your token directly with Phabricator API
+2. **Verify configuration**: Ensure `PHABRICATOR_TOKEN` is set correctly
+3. **Check environment**: Run server with debugging to see environment variables
+4. **Use personal token**: Pass `api_token` parameter directly to tools
+
+**Debugging Commands:**
+```bash
+# Check if server can start with your token
+PHABRICATOR_TOKEN=your-token python start.py --mode http
+
+# Test token manually
+curl -d "api.token=your-token" https://your-phabricator-instance.com/api/user.whoami
 ```
 
 ## 💻 Usage

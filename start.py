@@ -162,9 +162,9 @@ def start_server(mode="stdio"):
         print("📋 Setup Instructions:")
         print()
         print("🚀 Option 1: Claude Code CLI (Recommended)")
-        print("claude mcp add phabricator \\")
-        print("  --url http://localhost:8932/sse \\")
-        print("  --env PHABRICATOR_TOKEN=your-api-token-here")
+        print("claude mcp add --transport sse phabricator http://localhost:8932/sse \\")
+        print("  --env \"PHABRICATOR_TOKEN=api-xxxxxxx\" \\")
+        print("  --env \"PHABRICATOR_URL=https://example.com/api/\"")
         print()
         print("🔧 Option 2: Manual Configuration")
         print("Add this to your MCP configuration file:")
@@ -173,7 +173,8 @@ def start_server(mode="stdio"):
         print('    "phabricator": {')
         print('      "url": "http://localhost:8932/sse",')
         print('      "env": {')
-        print('        "PHABRICATOR_TOKEN": "your-api-token-here"')
+        print('        "PHABRICATOR_TOKEN": "api-xxxxxxx",')
+        print('        "PHABRICATOR_URL": "https://example.com/api/"')
         print('      }')
         print('    }')
         print('  }')
@@ -184,15 +185,17 @@ def start_server(mode="stdio"):
         print("• User Attribution: Comments and reviews will appear under YOUR name")
         print("• Hybrid Support: Falls back to environment variables if no personal token")
         print("• Secure: Token is passed through MCP client configuration")
-        print("• Replace 'your-api-token-here' with your actual token")
+        print("• Replace 'api-xxxxxxx' with your actual API token")
+        print("• Replace 'https://example.com/api/' with your actual Phabricator URL")
         print()
         print("💡 Getting Your API Token:")
         print("   1. Go to your Phabricator instance → Settings → API Tokens")
         print("   2. Create a new token with appropriate permissions")
         print("   3. Use this token in your MCP client configuration")
         print()
-        print("ℹ️  Note: Phabricator URL is auto-detected from your token")
-        print("   No need to configure PHABRICATOR_URL in the client")
+        print("🌐 Finding Your Phabricator URL:")
+        print("   Your API URL should end with /api/ (e.g., https://phab.company.com/api/)")
+        print("   Set PHABRICATOR_URL in your MCP client environment configuration")
         print()
         print("📝 Usage Examples:")
         print('  get_task(task_id="12345")')
@@ -218,7 +221,9 @@ def start_server(mode="stdio"):
         try:
             # Run the HTTP server with --quiet flag to prevent duplicate output
             subprocess.run(
-                [python_exe, str(src_dir / "servers" / "http_server.py"), "--quiet"], env=env, check=True
+                [python_exe, str(src_dir / "servers" / "http_server.py"), "--quiet"],
+                env=env,
+                check=True,
             )
         except KeyboardInterrupt:
             print("\nHTTP Server stopped by user")
@@ -245,8 +250,8 @@ def start_server(mode="stdio"):
         print(f'      "args": ["{os.path.abspath("start.py")}"],')
         print('      "cwd": "' + os.getcwd() + '",')
         print('      "env": {')
-        print('        "PHABRICATOR_TOKEN": "your-api-token-here",')
-        print('        "PHABRICATOR_URL": "https://your-instance.com/api/"')
+        print('        "PHABRICATOR_TOKEN": "api-xxxxxxx",')
+        print('        "PHABRICATOR_URL": "https://example.com/api/"')
         print('      }')
         print('    }')
         print('  }')
@@ -254,6 +259,7 @@ def start_server(mode="stdio"):
         print()
         print("🔑 Authentication:")
         print("• Configure your personal Phabricator API token in the MCP client configuration")
+        print("• Set PHABRICATOR_URL to point to your Phabricator instance's API endpoint")
         print("• Token is set once when the server starts")
         print("• Comments and reviews will appear under YOUR name")
         print()

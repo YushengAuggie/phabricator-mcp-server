@@ -71,13 +71,13 @@ def create_http_server() -> fastmcp.FastMCP:
         Args:
             task_id: Task ID (without 'T' prefix)
             comment: Comment text to add
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.add_task_comment(task_id, comment)
             return f"✓ Comment added successfully to task T{task_id}"
         except PhabricatorAPIError as e:
@@ -92,7 +92,7 @@ def create_http_server() -> fastmcp.FastMCP:
         Args:
             task_id: Task ID (without 'T' prefix)
             user_phids: Comma-separated list of user PHIDs to subscribe
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
@@ -102,7 +102,7 @@ def create_http_server() -> fastmcp.FastMCP:
             if not phid_list:
                 return "Error: No valid user PHIDs provided"
 
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.subscribe_to_task(task_id, phid_list)
             return f"✓ {len(phid_list)} user(s) subscribed successfully to task T{task_id}"
         except PhabricatorAPIError as e:
@@ -154,19 +154,21 @@ def create_http_server() -> fastmcp.FastMCP:
             return f"Unexpected error: {str(e)}"
 
     @mcp.tool()
-    async def add_differential_comment(revision_id: str, comment: str, api_token: str = None) -> str:
+    async def add_differential_comment(
+        revision_id: str, comment: str, api_token: str = None
+    ) -> str:
         """Add a comment to a differential revision.
 
         Args:
             revision_id: Revision ID (without 'D' prefix)
             comment: Comment text to add
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.add_differential_comment(revision_id, comment)
             return f"✓ Comment added successfully to revision D{revision_id}"
         except PhabricatorAPIError as e:
@@ -180,13 +182,13 @@ def create_http_server() -> fastmcp.FastMCP:
 
         Args:
             revision_id: Revision ID (without 'D' prefix)
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.accept_differential_revision(revision_id)
             return f"✓ Revision D{revision_id} accepted successfully"
         except PhabricatorAPIError as e:
@@ -195,19 +197,21 @@ def create_http_server() -> fastmcp.FastMCP:
             return f"Unexpected error: {str(e)}"
 
     @mcp.tool()
-    async def request_changes_differential(revision_id: str, comment: str = None, api_token: str = None) -> str:
+    async def request_changes_differential(
+        revision_id: str, comment: str = None, api_token: str = None
+    ) -> str:
         """Request changes on a differential revision.
 
         Args:
             revision_id: Revision ID (without 'D' prefix)
             comment: Optional comment explaining the requested changes
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.request_changes_differential_revision(revision_id, comment)
             return f"✓ Changes requested for revision D{revision_id}"
         except PhabricatorAPIError as e:
@@ -216,13 +220,15 @@ def create_http_server() -> fastmcp.FastMCP:
             return f"Unexpected error: {str(e)}"
 
     @mcp.tool()
-    async def subscribe_to_differential(revision_id: str, user_phids: str, api_token: str = None) -> str:
+    async def subscribe_to_differential(
+        revision_id: str, user_phids: str, api_token: str = None
+    ) -> str:
         """Subscribe users to a differential revision.
 
         Args:
             revision_id: Revision ID (without 'D' prefix)
             user_phids: Comma-separated list of user PHIDs to subscribe
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
@@ -232,7 +238,7 @@ def create_http_server() -> fastmcp.FastMCP:
             if not phid_list:
                 return "Error: No valid user PHIDs provided"
 
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.subscribe_to_differential(revision_id, phid_list)
             return f"✓ {len(phid_list)} user(s) subscribed successfully to revision D{revision_id}"
         except PhabricatorAPIError as e:
@@ -241,7 +247,9 @@ def create_http_server() -> fastmcp.FastMCP:
             return f"Unexpected error: {str(e)}"
 
     @mcp.tool()
-    async def get_review_feedback(revision_id: str, context_lines: int = 7, api_token: str = None) -> str:
+    async def get_review_feedback(
+        revision_id: str, context_lines: int = 7, api_token: str = None
+    ) -> str:
         """Get review feedback with intelligent code context for addressing comments.
 
         Perfect for understanding what needs to be changed and where to change it.
@@ -250,13 +258,13 @@ def create_http_server() -> fastmcp.FastMCP:
         Args:
             revision_id: Revision ID (without 'D' prefix)
             context_lines: Number of lines of code context to show around each comment (default: 7)
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Formatted review feedback with code context and actionable guidance
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             feedback_data = await phab_client.get_review_feedback_with_code_context(
                 revision_id, context_lines
             )
@@ -268,7 +276,12 @@ def create_http_server() -> fastmcp.FastMCP:
 
     @mcp.tool()
     async def add_inline_comment(
-        revision_id: str, file_path: str, line_number: int, content: str, is_new_file: bool = True, api_token: str = None
+        revision_id: str,
+        file_path: str,
+        line_number: int,
+        content: str,
+        is_new_file: bool = True,
+        api_token: str = None,
     ) -> str:
         """Add an inline comment to a specific line in a differential revision.
 
@@ -280,13 +293,13 @@ def create_http_server() -> fastmcp.FastMCP:
             line_number: Line number to comment on
             content: Comment text to add
             is_new_file: Whether to comment on the new version (True) or old version (False) of the file
-            api_token: Optional API token (deprecated, use environment variables instead)
+            api_token: Optional API token for personal authentication
 
         Returns:
             Success message or error description
         """
         try:
-            phab_client = client_manager.get_client()
+            phab_client = client_manager.get_client(api_token)
             await phab_client.add_inline_comment(
                 revision_id, file_path, line_number, content, is_new_file
             )
@@ -346,7 +359,9 @@ def main(quiet: bool = False):
         print("• request_changes_differential - Request changes on differential")
         print("• subscribe_to_differential - Subscribe users to differential")
         print()
-        print("💡 Pro tip: Comments and reviews will appear under YOUR name when using your personal token!")
+        print(
+            "💡 Pro tip: Comments and reviews will appear under YOUR name when using your personal token!"
+        )
         print()
 
     # Run with SSE transport on port 8932

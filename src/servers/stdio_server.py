@@ -40,7 +40,6 @@ class PhabricatorMCPServer:
         """
         return self.client_manager.get_client(api_token)
 
-
     def setup_handlers(self):
         """Set up MCP tool handlers."""
 
@@ -59,8 +58,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["task_id"],
                     },
@@ -78,8 +77,8 @@ class PhabricatorMCPServer:
                             "comment": {"type": "string", "description": "Comment text to add"},
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["task_id", "comment"],
                     },
@@ -100,8 +99,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["task_id", "user_phids"],
                     },
@@ -118,8 +117,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id"],
                     },
@@ -136,8 +135,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id"],
                     },
@@ -155,8 +154,8 @@ class PhabricatorMCPServer:
                             "comment": {"type": "string", "description": "Comment text to add"},
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id", "comment"],
                     },
@@ -173,8 +172,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id"],
                     },
@@ -195,8 +194,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id"],
                     },
@@ -217,8 +216,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id", "user_phids"],
                     },
@@ -239,8 +238,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id"],
                     },
@@ -270,8 +269,8 @@ class PhabricatorMCPServer:
                             },
                             "api_token": {
                                 "type": "string",
-                                "description": "Optional API token (deprecated, use environment variables instead)"
-                            }
+                                "description": "Optional API token for personal authentication",
+                            },
                         },
                         "required": ["revision_id", "file_path", "line_number", "content"],
                     },
@@ -291,7 +290,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "add_task_comment":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.add_task_comment(arguments["task_id"], arguments["comment"])
                     return [
                         types.TextContent(
@@ -307,7 +306,7 @@ class PhabricatorMCPServer:
                             phid.strip() for phid in user_phids.split(',') if phid.strip()
                         ]
 
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.subscribe_to_task(arguments["task_id"], user_phids)
                     return [
                         types.TextContent(
@@ -317,7 +316,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "get_differential_detailed":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     revision = await phab_client.get_differential_revision(arguments["revision_id"])
                     comments = await phab_client.get_differential_comments(arguments["revision_id"])
                     code_changes = await phab_client.get_differential_code_changes(
@@ -345,7 +344,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "add_differential_comment":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.add_differential_comment(
                         arguments["revision_id"], arguments["comment"]
                     )
@@ -357,7 +356,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "accept_differential":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.accept_differential_revision(arguments["revision_id"])
                     return [
                         types.TextContent(
@@ -367,7 +366,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "request_changes_differential":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.request_changes_differential_revision(
                         arguments["revision_id"], arguments.get("comment")
                     )
@@ -385,7 +384,7 @@ class PhabricatorMCPServer:
                             phid.strip() for phid in user_phids.split(',') if phid.strip()
                         ]
 
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.subscribe_to_differential(
                         arguments["revision_id"], user_phids
                     )
@@ -397,7 +396,7 @@ class PhabricatorMCPServer:
                     ]
 
                 elif name == "get_review_feedback":
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     context_lines = int(arguments.get("context_lines", 7))
                     feedback_data = await phab_client.get_review_feedback_with_code_context(
                         arguments["revision_id"], context_lines
@@ -417,7 +416,7 @@ class PhabricatorMCPServer:
                         "yes",
                     )
 
-                    phab_client = self._get_phab_client()
+                    phab_client = self._get_phab_client(arguments.get("api_token"))
                     await phab_client.add_inline_comment(
                         arguments["revision_id"],
                         arguments["file_path"],
